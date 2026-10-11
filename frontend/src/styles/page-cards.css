@@ -6,6 +6,7 @@
 .nodes-page .ant-card,
 .probe-page .ant-card,
 .groups-page .ant-card,
+.abuse-page .ant-card,
 .plans-page .ant-card,
 .api-docs-page .ant-card,
 .hosts-page .ant-card {
@@ -27,6 +28,7 @@
 .nodes-page .ant-card.ant-card-hoverable:hover,
 .probe-page .ant-card.ant-card-hoverable:hover,
 .groups-page .ant-card.ant-card-hoverable:hover,
+.abuse-page .ant-card.ant-card-hoverable:hover,
 .plans-page .ant-card.ant-card-hoverable:hover,
 .api-docs-page .ant-card.ant-card-hoverable:hover,
 .hosts-page .ant-card.ant-card-hoverable:hover {
@@ -44,6 +46,7 @@
   .nodes-page .ant-card.ant-card-hoverable:hover,
   .probe-page .ant-card.ant-card-hoverable:hover,
   .groups-page .ant-card.ant-card-hoverable:hover,
+  .abuse-page .ant-card.ant-card-hoverable:hover,
   .plans-page .ant-card.ant-card-hoverable:hover,
   .api-docs-page .ant-card.ant-card-hoverable:hover,
   .hosts-page .ant-card.ant-card-hoverable:hover {
@@ -59,6 +62,7 @@
 .nodes-page .ant-card .ant-card-actions,
 .probe-page .ant-card .ant-card-actions,
 .groups-page .ant-card .ant-card-actions,
+.abuse-page .ant-card .ant-card-actions,
 .plans-page .ant-card .ant-card-actions,
 .api-docs-page .ant-card .ant-card-actions,
 .hosts-page .ant-card .ant-card-actions {

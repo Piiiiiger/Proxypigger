@@ -1,0 +1,30 @@
+/* One column of cards, spaced like the hosts page's toolbar, notices and grid. */
+.abuse-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Inset to the rows' own 20px, as the subscription settings tab places its notes. */
+.abuse-rules-note {
+  margin: 8px 20px;
+}
+
+/* Three columns line every rule's 处理 up and keep the longest label on one line;
+   end alignment keeps a row's inputs level if a label still wraps on a phone. */
+.abuse-rule-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px 16px;
+}
+
+.abuse-rule-fields .ant-form-item {
+  margin-bottom: 0;
+}
+
+@media (max-width: 575px) {
+  .abuse-rule-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

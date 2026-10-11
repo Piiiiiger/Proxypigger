@@ -5,6 +5,7 @@
 .settings-page,
 .nodes-page,
 .plans-page,
+.abuse-page,
 .rules-page {
   --bg-page: #fdfaf8;
   --bg-card: #fffdfc;
@@ -26,6 +27,7 @@
 .settings-page.is-dark,
 .nodes-page.is-dark,
 .plans-page.is-dark,
+.abuse-page.is-dark,
 .rules-page.is-dark {
   --bg-page: #0d1018;
   --bg-card: #131722;
@@ -44,6 +46,7 @@
 .settings-page.is-dark.is-ultra,
 .nodes-page.is-dark.is-ultra,
 .plans-page.is-dark.is-ultra,
+.abuse-page.is-dark.is-ultra,
 .rules-page.is-dark.is-ultra {
   --bg-page: #000;
   --bg-card: #0b0b0e;
@@ -61,6 +64,7 @@
 .settings-page::before,
 .nodes-page::before,
 .plans-page::before,
+.abuse-page::before,
 .rules-page::before,
 .hosts-page::before {
   content: '';
@@ -87,8 +91,10 @@
 .nodes-page .ant-layout,
 .nodes-page .ant-layout-content,
 .plans-page .ant-layout,
+.abuse-page .ant-layout,
 .rules-page .ant-layout,
 .plans-page .ant-layout-content,
+.abuse-page .ant-layout-content,
 .rules-page .ant-layout-content {
   background: transparent;
 }
@@ -100,6 +106,7 @@
 .settings-page .content-shell,
 .nodes-page .content-shell,
 .plans-page .content-shell,
+.abuse-page .content-shell,
 .rules-page .content-shell {
   background: transparent;
 }
@@ -111,6 +118,7 @@
 .settings-page .content-area,
 .nodes-page .content-area,
 .plans-page .content-area,
+.abuse-page .content-area,
 .rules-page .content-area {
   padding: 24px;
 }
@@ -123,6 +131,7 @@
 .settings-page .content-area,
 .nodes-page .content-area,
 .plans-page .content-area,
+.abuse-page .content-area,
 .rules-page .content-area,
 .hosts-page .content-area {
   width: 100%;
@@ -135,6 +144,7 @@
   .inbounds-page .content-area,
   .nodes-page .content-area,
   .plans-page .content-area,
+  .abuse-page .content-area,
   .rules-page .content-area {
     padding: 8px;
   }

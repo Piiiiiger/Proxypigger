@@ -6,7 +6,8 @@ import AbusePage from '@/pages/abuse/AbusePage';
 import { HttpUtil, Msg } from '@/utils';
 import { renderWithProviders } from './test-utils';
 
-vi.mock('@/layouts/AppNav', () => ({ default: () => null }));
+// A landmark stands in for the real top bar, so a page drawn without it shows.
+vi.mock('@/layouts/AppNav', () => ({ default: () => <nav aria-label="面板导航" /> }));
 
 // The handlers bind JSON only: the real serializer must run, so fetch is stubbed.
 vi.mocked(HttpUtil.post).mockRestore();
@@ -144,9 +145,19 @@ function chooseIn(control: HTMLElement, optionText: string) {
   fireEvent.click(option);
 }
 
-function sectionOf(title: string): HTMLElement {
-  return screen.getByRole('heading', { name: title }).closest('section') as HTMLElement;
+function rule(title: string): HTMLElement {
+  return screen.getByRole('group', { name: title });
 }
+
+function saveButton(): HTMLButtonElement {
+  return screen.getByRole('button', { name: '保存设置' }) as HTMLButtonElement;
+}
+
+it('sits in the panel shell under its own header, like every other page', async () => {
+  await renderPage();
+  expect(screen.getByRole('navigation', { name: '面板导航' })).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: '防滥用' })).toBeTruthy();
+});
 
 it('warns that a detecting server whose agent cannot detect has no effect yet', async () => {
   await renderPage();
@@ -166,7 +177,7 @@ it('switches one server with a JSON request naming it', async () => {
 
 it('lifts a running ban', async () => {
   await renderPage();
-  fireEvent.click(screen.getByRole('button', { name: '解 除' }));
+  fireEvent.click(screen.getByRole('button', { name: /解\s*除/ }));
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   expect(lastPost().url).toBe('/panel/api/abuse/lift/alice');
 });
@@ -179,11 +190,10 @@ it('shows the destinations a hit stored as evidence', async () => {
 
 it('saves what a rule does together with its thresholds', async () => {
   await renderPage();
-  const crawler = sectionOf('爬虫');
-  chooseIn(within(crawler).getByLabelText('处理'), '提醒用户');
-  fireEvent.change(within(crawler).getByLabelText('不同网站数'), { target: { value: '700' } });
-  chooseIn(within(sectionOf('注册保护（用户页面）')).getByLabelText('处理'), '阻止注册 24 小时');
-  fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
+  chooseIn(within(rule('爬虫')).getByLabelText('处理'), '提醒用户');
+  fireEvent.change(within(rule('爬虫')).getByLabelText('不同网站数'), { target: { value: '700' } });
+  chooseIn(within(rule('注册保护（用户页面）')).getByLabelText('处理'), '阻止注册 24 小时');
+  fireEvent.click(saveButton());
 
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   expect(lastPost()).toEqual({
@@ -198,12 +208,12 @@ it('saves what a rule does together with its thresholds', async () => {
 
 it('saves the bulk sign-up limit of each platform', async () => {
   await renderPage();
-  const register = sectionOf('批量注册（AI / Google / 微软账号）');
+  const register = rule('批量注册（AI / Google / 微软账号）');
   fireEvent.change(within(register).getByLabelText('Google 每小时分钟数'), {
     target: { value: '40' },
   });
   chooseIn(within(register).getByLabelText('处理'), '提醒用户');
-  fireEvent.click(screen.getByRole('button', { name: '保存设置' }));
+  fireEvent.click(saveButton());
 
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   expect(lastPost()).toEqual({
@@ -214,4 +224,30 @@ it('saves the bulk sign-up limit of each platform', async () => {
       signup: { limit: 3, action: 'record' },
     },
   });
+});
+
+it('offers saving only while a rule differs from what was saved, as the settings page does', async () => {
+  await renderPage();
+  expect(saveButton().disabled).toBe(true);
+  fireEvent.change(within(rule('爬虫')).getByLabelText('不同网站数'), { target: { value: '700' } });
+  expect(saveButton().disabled).toBe(false);
+  fireEvent.click(saveButton());
+
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(saveButton().disabled).toBe(true));
+  expect((within(rule('爬虫')).getByLabelText('不同网站数') as HTMLInputElement).value).toBe('700');
+});
+
+it('keeps a rule change to save again when saving fails', async () => {
+  await renderPage();
+  fetchMock.mockImplementation(
+    async () => new Response(JSON.stringify({ success: false, msg: 'save unavailable' })),
+  );
+  fireEvent.change(within(rule('爬虫')).getByLabelText('不同网站数'), { target: { value: '700' } });
+  fireEvent.click(saveButton());
+
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(saveButton().querySelector('.ant-btn-loading-icon')).toBeNull());
+  expect(saveButton().disabled).toBe(false);
+  expect((within(rule('爬虫')).getByLabelText('不同网站数') as HTMLInputElement).value).toBe('700');
 });
