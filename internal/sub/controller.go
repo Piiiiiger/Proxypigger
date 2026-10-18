@@ -350,6 +350,7 @@ func (a *SUBController) initRouter(g *gin.RouterGroup) {
 	gLink.GET("portal/probe", a.portalProbe)
 	gLink.GET("portal/online-ips", a.portalOnlineIps)
 	gLink.GET("portal/bans", a.portalBans)
+	gLink.POST("portal/ai-patrol/seen", portalJSON, a.portalAIPatrolSeen)
 	gLink.POST("portal/login", portalJSON, a.portalLogin)
 	gLink.POST("portal/logout", a.portalLogout)
 	gLink.POST("portal/register", portalJSON, a.portalRegister)

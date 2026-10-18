@@ -27,6 +27,8 @@ export const ABUSE_OUTCOMES: Record<string, string> = {
   locked: '账号停用',
   held: '封禁中再次触发',
   blocked: '该网络暂停注册',
+  ai_violation: 'Codex 违规已记录（未封禁）',
+  ai_suspended: 'Codex 复犯：暂停 24 小时',
 };
 
 // eventSamples reads the few destinations or accounts a hit stored as evidence.
@@ -68,5 +70,6 @@ export function banOutcome(record: BanRecord, nowMs: number): string {
 }
 
 export function banKind(record: BanRecord): string {
+  if (record.kind === 'ai_patrol') return 'Codex 巡查：暂停 24 小时';
   return record.kind === 'iplimit' ? 'IP 超限' : `违规第 ${record.strike} 次`;
 }

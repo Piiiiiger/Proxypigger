@@ -424,6 +424,27 @@ func (a *SUBController) portalBans(c *gin.Context) {
 	c.JSON(http.StatusOK, history)
 }
 
+func (a *SUBController) portalAIPatrolSeen(c *gin.Context) {
+	setNoCacheHeaders(c)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, portalBodyLimit)
+	client, ok := a.portalSessionClient(c)
+	if !ok {
+		return
+	}
+	var req struct {
+		IDs []int `json:"ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.IDs) > 100 {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+	if err := (&service.AIPatrolService{}).Seen(client.Email, req.IDs, time.Now()); err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 // portalProbe returns the status of the servers behind the signed-in client's
 // own inbounds; the page polls it while the probe view is open.
 func (a *SUBController) portalProbe(c *gin.Context) {

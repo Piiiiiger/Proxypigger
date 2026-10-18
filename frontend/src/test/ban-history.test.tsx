@@ -156,6 +156,43 @@ describe("the admin's ban history", () => {
 describe("the user page's ban history", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it('shows the persisted first violation and acknowledges only after the user clicks', async () => {
+    let acknowledged = false;
+    const request = vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.endsWith('/ai-patrol/seen')) {
+        expect(options?.method).toBe('POST');
+        expect(JSON.parse(String(options?.body))).toEqual({ ids: [7] });
+        acknowledged = true;
+        return new Response(null, { status: 204 });
+      }
+      return new Response(
+        JSON.stringify({
+          ...clean,
+          aiPatrolNotices: [
+            {
+              id: 7,
+              at: NOW,
+              action: 'ai_violation',
+              reason: 'confirmed scan',
+              portalSeenAt: acknowledged ? NOW : 0,
+              notifiedAt: 0,
+              forgiven: false,
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal('fetch', request);
+    renderWithProviders(<PortalBanBanner base="/x/portal" email="alice" />);
+    await screen.findByText('Codex 巡查违规通知');
+    expect(screen.getByText(/本次不封禁.*请联系管理员了解详情/)).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: '我已知晓' }));
+    await waitFor(() => expect(screen.queryByText('Codex 巡查违规通知')).toBeNull());
+    expect(acknowledged).toBe(true);
+  });
+
   it("lists the signed-in person's own bans, leaving the running one to the banner", async () => {
     const request = vi
       .fn()

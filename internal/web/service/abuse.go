@@ -321,7 +321,7 @@ func strikesSince(tx *gorm.DB, email string, since time.Time) (int64, error) {
 
 func activeAbuseBan(tx *gorm.DB, email string, now time.Time) (*model.BanRecord, error) {
 	var rec model.BanRecord
-	err := tx.Where("email = ? AND kind = ? AND lifted_at = 0 AND (expires_at = 0 OR expires_at > ?)", email, BanKindAbuse, now.Unix()).
+	err := tx.Where("email = ? AND kind IN ? AND lifted_at = 0 AND (expires_at = 0 OR expires_at > ?)", email, []string{BanKindAbuse, BanKindAIPatrol}, now.Unix()).
 		Order("banned_at DESC").First(&rec).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -332,7 +332,7 @@ func activeAbuseBan(tx *gorm.DB, email string, now time.Time) (*model.BanRecord,
 // ActiveBans are the abuse bans and locks running now, for the configs.
 func (s *AbuseService) ActiveBans(now time.Time) ([]model.BanRecord, error) {
 	var recs []model.BanRecord
-	err := database.GetDB().Where("kind = ? AND lifted_at = 0 AND (expires_at = 0 OR expires_at > ?)", BanKindAbuse, now.Unix()).
+	err := database.GetDB().Where("kind IN ? AND lifted_at = 0 AND (expires_at = 0 OR expires_at > ?)", []string{BanKindAbuse, BanKindAIPatrol}, now.Unix()).
 		Order("email").Find(&recs).Error
 	return recs, err
 }
@@ -390,6 +390,9 @@ func (s *AbuseService) Forgive(email string) error {
 }
 
 func forgive(tx *gorm.DB, email string) error {
+	if err := tx.Model(&model.AIPatrolViolation{}).Where("email = ? AND forgiven = ?", email, false).Update("forgiven", true).Error; err != nil {
+		return err
+	}
 	return tx.Model(&model.BanRecord{}).Where("email = ? AND kind = ? AND forgiven = ?", email, BanKindAbuse, false).
 		Update("forgiven", true).Error
 }
@@ -414,6 +417,8 @@ func (s *AbuseService) Prune(now time.Time) error {
 // AbuseRuleLabel names a rule the way the people affected read it.
 func AbuseRuleLabel(rule string) string {
 	switch rule {
+	case AbuseRuleAIPatrol:
+		return "Codex AI 巡查违规"
 	case abuse.RuleSpam:
 		return "发送垃圾邮件"
 	case abuse.RuleBT:
@@ -465,6 +470,11 @@ func signInServerName(platform string) string {
 func AbuseEvidence(e model.AbuseEvent) string {
 	w := windowText(e.Window)
 	switch e.Measure {
+	case "ai_patrol":
+		var samples []string
+		if json.Unmarshal([]byte(e.Samples), &samples) == nil && len(samples) > 0 {
+			return samples[0]
+		}
 	case abuse.MeasureAttempts:
 		if e.Rule == abuse.RuleSpam {
 			return fmt.Sprintf("%s内连接邮件端口 25 共 %d 次", w, e.Count)

@@ -19,6 +19,8 @@ type Config struct {
 	Master   string `json:"master"`
 	Secret   string `json:"secret"`
 	StateDir string `json:"stateDir,omitempty"`
+	// AccessAuditLog enables bounded JSONL connection evidence only on selected hosts.
+	AccessAuditLog string `json:"accessAuditLog,omitempty"`
 }
 
 func LoadConfig(path string) (Config, error) {

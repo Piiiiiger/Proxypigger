@@ -56,6 +56,9 @@ func (t *Tgbot) notifyAbuse(ctx context.Context, now time.Time) {
 	actions := (&service.AbuseService{}).Settings().Actions
 	hour := now.Unix() / 3600
 	for _, e := range events {
+		if e.Rule == service.AbuseRuleAIPatrol {
+			continue
+		} // its durable notification queue handles delivery
 		if e.Action == service.AbuseActionHeld {
 			continue
 		}

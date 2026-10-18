@@ -1,0 +1,11 @@
+[Unit]
+Description=Check whether this selected node is due for an AI patrol
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+Unit=ai-abuse-patrol.service
+
+[Install]
+WantedBy=timers.target

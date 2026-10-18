@@ -1,0 +1,25 @@
+{
+  "enabled": false,
+  "node_name": "important-node-1",
+  "state_dir": "/var/lib/ai-abuse-patrol",
+  "codex_bin": "/usr/local/bin/codex",
+  "model": "",
+  "reasoning_effort": "low",
+  "provider_base_url": "",
+  "provider_env_key": "AXONHUB_API_KEY",
+  "provider_http_headers": {},
+  "audit_health_path": "",
+  "interval_hours": 12,
+  "max_ai_runs_per_day": 2,
+  "timeout_seconds": 600,
+  "max_scan_bytes": 67108864,
+  "max_lines": 1000000,
+  "max_input_bytes": 96000,
+  "max_users": 100,
+  "retain_days": 7,
+  "log_timezone": "UTC",
+  "sources": [
+    {"format": "xray", "path": "/var/log/xray/access.log*"}
+  ],
+  "policy": "这是代理服务器。关注扫描、异常集中连接、SMTP 出站和突然变化；大流量与访问 AI 服务本身不是滥用。仅给出人工复核建议。"
+}

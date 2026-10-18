@@ -24,11 +24,12 @@ type abuseRun struct {
 	stop     chan struct{}
 }
 
-// abuseWatch feeds the detector from Xray's own record of each connection, with
-// nothing written to disk, while the panel has detection on for this host.
+// abuseWatch feeds the in-memory detector while detection is enabled, and the
+// optional audit writer independently, from Xray's own connection records.
 type abuseWatch struct {
 	run     atomic.Pointer[abuseRun]
 	dropped atomic.Int64
+	audit   *accessAudit // immutable after Agent.New; independent of fixed-rule mode
 }
 
 func newAbuseWatch() *abuseWatch { return &abuseWatch{} }
@@ -74,11 +75,17 @@ func (w *abuseWatch) attach(instance *xcore.Instance) {
 // offer queues one access record for the detector, if detection is on.
 func (w *abuseWatch) offer(m *xlog.AccessMessage) {
 	r := w.run.Load()
-	if r == nil {
+	if r == nil && w.audit == nil {
 		return
 	}
 	e, ok := accessEvent(m, time.Now())
 	if !ok {
+		return
+	}
+	if w.audit != nil {
+		w.audit.offer(e, m)
+	}
+	if r == nil {
 		return
 	}
 	select {

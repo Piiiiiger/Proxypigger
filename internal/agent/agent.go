@@ -91,6 +91,15 @@ func New(cfg Config, version string) (*Agent, error) {
 		activity: newActivity(onlineGrace),
 		abuse:    newAbuseWatch(),
 	}
+	if cfg.AccessAuditLog != "" {
+		audit, err := newAccessAudit(cfg.AccessAuditLog)
+		if err != nil {
+			// An audit disk/path failure must not stop proxy service.
+			logger.Warning("agent: access audit unavailable:", err)
+		} else {
+			a.abuse.audit = audit
+		}
+	}
 	a.core.onStarted = a.abuse.attach
 	return a, nil
 }
@@ -109,6 +118,9 @@ func (a *Agent) Run(ctx context.Context) {
 	a.closeStatsLocked()
 	a.statsMu.Unlock()
 	a.core.stop()
+	if a.abuse.audit != nil {
+		a.abuse.audit.close()
+	}
 }
 
 func (a *Agent) savedConfigPath() string { return filepath.Join(a.cfg.StateDir, "xray.json") }

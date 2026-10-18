@@ -106,6 +106,8 @@ func allModels() []any {
 		&model.AbuseEvent{},
 		&model.BanRecord{},
 		&model.PortalSignup{},
+		&model.AIPatrolReview{},
+		&model.AIPatrolViolation{},
 		&model.RuleSet{},
 		&model.RuleSetVersion{},
 		&model.PanelLoginNetwork{},

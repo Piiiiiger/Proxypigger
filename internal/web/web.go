@@ -331,6 +331,9 @@ func (s *Server) startTask(restartXray bool, loc *time.Location) {
 	// check client ips from log file every 10 sec
 	_, _ = s.cron.AddJob(cadenceClientIPScan, job.NewCheckClientIpJob())
 	_, _ = s.cron.AddJob(cadenceAbuseChecks, job.NewAbuseJob())
+	aiPatrolJob := &job.AIPatrolJob{}
+	_, _ = s.cron.AddJob("@every 5m", aiPatrolJob)
+	go aiPatrolJob.Run()
 
 	_, _ = s.cron.AddJob(cadenceNodeHeartbeat, job.NewNodeHeartbeatJob())
 

@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "enabled_after": 0,
+  "identity_file": "/etc/ai-abuse-patrol/reader_ed25519",
+  "known_hosts_file": "/etc/ai-abuse-patrol/known_hosts",
+  "nodes": [
+    {"node_id": 1, "host": "192.0.2.10", "port": 22},
+    {"node_id": 2, "host": "198.51.100.20", "port": 22},
+    {"node_id": 3, "host": "203.0.113.30", "port": 22}
+  ]
+}

@@ -705,6 +705,7 @@ func (t *Tgbot) sendAccountNotifications(ctx context.Context, now time.Time) {
 	}
 	t.notifyIpBans(ctx, now)
 	t.notifyAbuse(ctx, now)
+	t.notifyAIPatrol(ctx, now)
 	t.notifyRuleSets(ctx, now)
 	t.notifyDueUsers(ctx, now)
 	t.notifyServerRenewals(ctx, now, clock)

@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI 防滥用巡查"
+  short_description: "对选定代理节点的日志摘要做周期巡查，给出可核验依据和误报解释，不自动处罚"
+  default_prompt: "使用 $ai-abuse-patrol 分析本次巡查证据，比较历史行为，并给出中文报告。"

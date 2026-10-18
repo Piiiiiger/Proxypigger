@@ -37,8 +37,9 @@ type AbuseOverview struct {
 
 // AbuseHistory is one account's standing and its bans of the last 90 days.
 type AbuseHistory struct {
-	Status  AbuseStatus       `json:"status"`
-	Records []model.BanRecord `json:"records"`
+	Status          AbuseStatus               `json:"status"`
+	Records         []model.BanRecord         `json:"records"`
+	AIPatrolNotices []model.AIPatrolViolation `json:"aiPatrolNotices"`
 }
 
 // abuseHistoryDays is how far back an account's bans are shown.
@@ -95,5 +96,9 @@ func (s *AbuseService) HistoryOf(email string, now time.Time) (*AbuseHistory, er
 	if err != nil {
 		return nil, err
 	}
-	return &AbuseHistory{Status: status, Records: records}, nil
+	notices, err := (&AIPatrolService{}).Notices(email, now)
+	if err != nil {
+		return nil, err
+	}
+	return &AbuseHistory{Status: status, Records: records, AIPatrolNotices: notices}, nil
 }
