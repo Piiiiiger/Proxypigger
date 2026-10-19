@@ -4,7 +4,8 @@ import type { AbuseHistory, BanRecord } from '@/generated/zod';
 import { banKind, banOutcome, banTime } from '@/lib/abuse';
 
 export interface BanHistoryProps {
-  history: AbuseHistory;
+  // AI patrol notices have their own section on the user page; this list never reads them.
+  history: Pick<AbuseHistory, 'status' | 'records'>;
   nowMs: number;
   // The user page shows the running ban in its own banner at the top.
   showBanner?: boolean;

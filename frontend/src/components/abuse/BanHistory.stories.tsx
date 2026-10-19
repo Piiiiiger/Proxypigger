@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import type { AbuseHistory, BanRecord } from '@/generated/zod';
+import type { BanRecord } from '@/generated/zod';
 
-import { BanHistory } from './BanHistory';
+import { BanHistory, type BanHistoryProps } from './BanHistory';
 
 const meta = {
   title: 'Abuse/BanHistory',
@@ -51,7 +51,7 @@ function record(over: Partial<BanRecord>): BanRecord {
 }
 
 const running = record({ id: 3, strike: 2 });
-const history: AbuseHistory = {
+const history: BanHistoryProps['history'] = {
   status: { ban: running, strikes: 2, limit: 3 },
   records: [
     running,
