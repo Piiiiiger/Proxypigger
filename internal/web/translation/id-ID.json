@@ -875,7 +875,6 @@
       "password": "Kata sandi",
       "passwordDesc": "Digunakan oleh klien Trojan, Shadowsocks, TUIC, dan SOCKS5; diabaikan untuk VLESS, VMess, Hysteria, dan WireGuard.",
       "socks5Title": "Proxy SOCKS5",
-      "socks5Hint": "Tidak ada di langganan mana pun. SOCKS5 tidak terenkripsi: gunakan dari luar negeri atau melalui VPN.",
       "socks5Exit": "Keluar di {name}",
       "subId": "ID Langganan",
       "subIdDesc": "Juga berfungsi sebagai kode undangan bot Telegram untuk pengguna ini: siapa pun yang mengirimkannya ke bot akan ditautkan ke pengguna ini. Buat panjang dan acak — ID yang pendek atau mudah ditebak bisa diklaim orang lain.",

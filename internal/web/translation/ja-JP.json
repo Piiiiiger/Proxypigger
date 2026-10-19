@@ -875,7 +875,6 @@
       "password": "パスワード",
       "passwordDesc": "Trojan、Shadowsocks、TUIC、SOCKS5 のクライアントが使用します。VLESS、VMess、Hysteria、WireGuard では無視されます。",
       "socks5Title": "SOCKS5 プロキシ",
-      "socks5Hint": "どのサブスクリプションにも含まれません。SOCKS5 は暗号化されないため、国外から、または VPN 経由で使ってください。",
       "socks5Exit": "出口 {name}",
       "subId": "サブスクリプション ID",
       "subIdDesc": "このユーザーの Telegram ボット招待コードとしても使われます。ボットに送信した人がこのユーザーに紐付けられます。長くランダムな値にしてください。短い、または推測しやすい ID は他人に取得されるおそれがあります。",

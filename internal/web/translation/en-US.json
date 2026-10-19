@@ -875,7 +875,6 @@
       "password": "Password",
       "passwordDesc": "Used by Trojan, Shadowsocks, TUIC, and SOCKS5 clients; ignored for VLESS, VMess, Hysteria, and WireGuard.",
       "socks5Title": "SOCKS5 proxies",
-      "socks5Hint": "Not in any subscription. SOCKS5 is not encrypted: use it from abroad or through a VPN.",
       "socks5Exit": "Exits at {name}",
       "subId": "Subscription ID",
       "subIdDesc": "Also works as this user's Telegram bot invite code: whoever sends it to the bot is linked to this user. Keep it long and random — a short or guessable ID can be claimed by someone else.",

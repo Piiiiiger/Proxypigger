@@ -875,7 +875,6 @@
       "password": "Mật khẩu",
       "passwordDesc": "Được dùng bởi các client Trojan, Shadowsocks, TUIC và SOCKS5; bị bỏ qua đối với VLESS, VMess, Hysteria và WireGuard.",
       "socks5Title": "Proxy SOCKS5",
-      "socks5Hint": "Không có trong gói đăng ký nào. SOCKS5 không được mã hóa: hãy dùng từ nước ngoài hoặc qua VPN.",
       "socks5Exit": "Thoát ra tại {name}",
       "subId": "ID đăng ký",
       "subIdDesc": "Cũng được dùng làm mã mời bot Telegram của người dùng này: ai gửi mã này cho bot sẽ được liên kết với người dùng. Hãy để mã dài và ngẫu nhiên — ID ngắn hoặc dễ đoán có thể bị người khác chiếm.",

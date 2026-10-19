@@ -875,7 +875,6 @@
       "password": "密碼",
       "passwordDesc": "Trojan、Shadowsocks、TUIC 與 SOCKS5 用戶端使用；VLESS、VMess、Hysteria 和 WireGuard 會忽略此項。",
       "socks5Title": "SOCKS5 代理",
-      "socks5Hint": "不在任何訂閱裡。SOCKS5 不加密，請在境外或透過 VPN 使用。",
       "socks5Exit": "出口 {name}",
       "subId": "訂閱 ID",
       "subIdDesc": "同時作為此使用者的 Telegram 機器人邀請碼：任何人將其傳送給機器人即會綁定到此使用者。請保持足夠長且隨機——過短或容易猜到的 ID 可能被他人搶先綁定。",

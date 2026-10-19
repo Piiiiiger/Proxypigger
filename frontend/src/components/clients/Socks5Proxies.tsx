@@ -16,9 +16,6 @@ export default function Socks5ProxyList({ proxies }: Socks5ProxyListProps) {
   const copyTips = [t('copy'), t('copied')];
   return (
     <div className="socks5-list">
-      <Typography.Text type="secondary" className="socks5-hint">
-        {t('pages.clients.socks5Hint')}
-      </Typography.Text>
       {proxies.map((p) => {
         const url = socks5Url(p);
         const line = socks5Line(p);

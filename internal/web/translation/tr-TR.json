@@ -875,7 +875,6 @@
       "password": "Şifre",
       "passwordDesc": "Trojan, Shadowsocks, TUIC ve SOCKS5 istemcileri tarafından kullanılır; VLESS, VMess, Hysteria ve WireGuard için yok sayılır.",
       "socks5Title": "SOCKS5 proxy'leri",
-      "socks5Hint": "Hiçbir aboneliğe dahil değildir. SOCKS5 şifrelenmez: yurt dışından veya bir VPN üzerinden kullanın.",
       "socks5Exit": "Çıkış: {name}",
       "subId": "Abonelik ID'si",
       "subIdDesc": "Bu kullanıcının Telegram botu davet kodu olarak da kullanılır: bunu bota gönderen kişi bu kullanıcıya bağlanır. Uzun ve rastgele tutun — kısa veya tahmin edilebilir bir kimlik başkası tarafından sahiplenilebilir.",
