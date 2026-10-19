@@ -94,6 +94,7 @@ func run(root, outDir string) error {
 				"InboundOption",
 				"ClientIpInfo",
 				"ClientOnlineIps",
+				"Socks5Proxy",
 				"OnlineNetwork",
 				"AbuseServer",
 				"AbuseEventView",

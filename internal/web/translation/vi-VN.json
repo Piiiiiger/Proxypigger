@@ -790,7 +790,8 @@
           "expired": "Expired",
           "suspended": "Tạm ngưng"
         }
-      }
+      },
+      "mixedUsersNote": "Người dùng gắn với inbound này đăng nhập bằng tên người dùng và mật khẩu SOCKS5 của mình, với cách tính phí, hạn mức, giới hạn IP và thời hạn giống VLESS; khi đó các tài khoản bên dưới không còn dùng được."
     },
     "clients": {
       "tabBasics": "Cơ bản",
@@ -872,7 +873,10 @@
       "hwidDeleted": "Đã xóa thiết bị.",
       "clearHwidsConfirm": "Xóa tất cả thiết bị đã đăng ký? Mỗi thiết bị sẽ cần đăng ký lại vào lần lấy gói đăng ký tiếp theo.",
       "password": "Mật khẩu",
-      "passwordDesc": "Chỉ được dùng bởi các client Trojan và Shadowsocks; bị bỏ qua đối với VLESS, VMess, Hysteria và WireGuard.",
+      "passwordDesc": "Được dùng bởi các client Trojan, Shadowsocks, TUIC và SOCKS5; bị bỏ qua đối với VLESS, VMess, Hysteria và WireGuard.",
+      "socks5Title": "Proxy SOCKS5",
+      "socks5Hint": "Không có trong gói đăng ký nào. SOCKS5 không được mã hóa: hãy dùng từ nước ngoài hoặc qua VPN.",
+      "socks5Exit": "Thoát ra tại {name}",
       "subId": "ID đăng ký",
       "subIdDesc": "Cũng được dùng làm mã mời bot Telegram của người dùng này: ai gửi mã này cho bot sẽ được liên kết với người dùng. Hãy để mã dài và ngẫu nhiên — ID ngắn hoặc dễ đoán có thể bị người khác chiếm.",
       "online": "Trực tuyến",

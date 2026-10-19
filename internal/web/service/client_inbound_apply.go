@@ -449,6 +449,10 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 			if client.Password == "" {
 				return false, common.NewError("empty client ID")
 			}
+		case model.Mixed:
+			if client.Password == "" {
+				return false, common.NewError("socks5 client requires a password")
+			}
 		case "shadowsocks":
 			if client.Email == "" {
 				return false, common.NewError("empty client ID")

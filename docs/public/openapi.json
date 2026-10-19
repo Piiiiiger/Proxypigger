@@ -26,6 +26,71 @@
       }
     },
     "schemas": {
+      "AIPatrolViolation": {
+        "description": "AIPatrolViolation survives report retention, restarts and notification retries.\nIts strikes are independent of the real-time detector's 30-minute penalties.",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "category": {
+            "type": "string"
+          },
+          "eventId": {
+            "type": "integer"
+          },
+          "forgiven": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "nodeId": {
+            "type": "integer"
+          },
+          "notifiedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "portalSeenAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "windowEnd": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "windowStart": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action",
+          "at",
+          "category",
+          "eventId",
+          "forgiven",
+          "id",
+          "nodeId",
+          "notifiedAt",
+          "portalSeenAt",
+          "reason",
+          "runId",
+          "windowEnd",
+          "windowStart"
+        ],
+        "type": "object"
+      },
       "AbuseActions": {
         "description": "AbuseActions say what each rule's hits do on an enforcing server.",
         "properties": {
@@ -234,6 +299,12 @@
       "AbuseHistory": {
         "description": "AbuseHistory is one account's standing and its bans of the last 90 days.",
         "properties": {
+          "aiPatrolNotices": {
+            "items": {
+              "$ref": "#/components/schemas/AIPatrolViolation"
+            },
+            "type": "array"
+          },
           "records": {
             "items": {
               "$ref": "#/components/schemas/BanRecord"
@@ -245,6 +316,7 @@
           }
         },
         "required": [
+          "aiPatrolNotices",
           "records",
           "status"
         ],
@@ -7498,6 +7570,54 @@
         ],
         "type": "object"
       },
+      "Socks5Proxy": {
+        "description": "Socks5Proxy is one SOCKS5 login of a user: where to connect, and the node the\ntraffic leaves from when this one relays it on through a chain.",
+        "properties": {
+          "enable": {
+            "example": true,
+            "type": "boolean"
+          },
+          "exit": {
+            "example": "日本-家宽",
+            "type": "string"
+          },
+          "host": {
+            "example": "198.51.100.10",
+            "type": "string"
+          },
+          "inboundId": {
+            "example": 31,
+            "type": "integer"
+          },
+          "password": {
+            "example": "4f0c7c2d9a1b4e5f8a6b3c2d1e0f9a8b",
+            "type": "string"
+          },
+          "port": {
+            "example": 30001,
+            "type": "integer"
+          },
+          "remark": {
+            "example": "日本-NOSLA SOCKS5",
+            "type": "string"
+          },
+          "username": {
+            "example": "alice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enable",
+          "exit",
+          "host",
+          "inboundId",
+          "password",
+          "port",
+          "remark",
+          "username"
+        ],
+        "type": "object"
+      },
       "SubBalancer": {
         "description": "SubBalancer is one extra JSON-subscription config document whose members are\nthe selected inbounds' proxy outbounds. SortOrder shares SubSortIndex semantics.",
         "properties": {
@@ -14663,6 +14783,67 @@
         }
       }
     },
+    "/panel/api/clients/socks5/{email}": {
+      "get": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "List the SOCKS5 logins of one client: every attached `mixed` inbound with the address and port a share link would advertise (the node address and NAT port, or the host this request reached for an inbound on the panel itself), the client name as username and its SOCKS5 password, and the exit node when the inbound relays on through a chain. Subscriptions never carry these.",
+        "operationId": "get_panel_api_clients_socks5_email",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "description": "Client email.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Socks5Proxy"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "enable": true,
+                      "exit": "日本-家宽",
+                      "host": "198.51.100.10",
+                      "inboundId": 31,
+                      "password": "4f0c7c2d9a1b4e5f8a6b3c2d1e0f9a8b",
+                      "port": 30001,
+                      "remark": "日本-NOSLA SOCKS5",
+                      "username": "alice"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/nodes/list": {
       "get": {
         "tags": [
@@ -18406,6 +18587,23 @@
                 "example": {
                   "success": true,
                   "obj": {
+                    "aiPatrolNotices": [
+                      {
+                        "action": "",
+                        "at": 0,
+                        "category": "",
+                        "eventId": 0,
+                        "forgiven": false,
+                        "id": 0,
+                        "nodeId": 0,
+                        "notifiedAt": 0,
+                        "portalSeenAt": 0,
+                        "reason": "",
+                        "runId": "",
+                        "windowEnd": 0,
+                        "windowStart": 0
+                      }
+                    ],
                     "records": [
                       {
                         "bannedAt": 1791172800,
@@ -18475,6 +18673,23 @@
                 "example": {
                   "success": true,
                   "obj": {
+                    "aiPatrolNotices": [
+                      {
+                        "action": "",
+                        "at": 0,
+                        "category": "",
+                        "eventId": 0,
+                        "forgiven": false,
+                        "id": 0,
+                        "nodeId": 0,
+                        "notifiedAt": 0,
+                        "portalSeenAt": 0,
+                        "reason": "",
+                        "runId": "",
+                        "windowEnd": 0,
+                        "windowStart": 0
+                      }
+                    ],
                     "records": [
                       {
                         "bannedAt": 1791172800,
@@ -18544,6 +18759,23 @@
                 "example": {
                   "success": true,
                   "obj": {
+                    "aiPatrolNotices": [
+                      {
+                        "action": "",
+                        "at": 0,
+                        "category": "",
+                        "eventId": 0,
+                        "forgiven": false,
+                        "id": 0,
+                        "nodeId": 0,
+                        "notifiedAt": 0,
+                        "portalSeenAt": 0,
+                        "reason": "",
+                        "runId": "",
+                        "windowEnd": 0,
+                        "windowStart": 0
+                      }
+                    ],
                     "records": [
                       {
                         "bannedAt": 1791172800,

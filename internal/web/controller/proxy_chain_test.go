@@ -186,3 +186,43 @@ func TestProxyChainRefusesUnverifiedRemoteRouteButAllowsDisabledDraft(t *testing
 		t.Fatal("disabled draft was silently enabled by the database default")
 	}
 }
+
+// A relay must be able to carry the chain: transit logins need a VLESS/VMess/Trojan
+// relay, and a SOCKS5 relay dials one exit itself; anything else breaks its config.
+func TestProxyChainRefusesRelaysThatCannotCarryIt(t *testing.T) {
+	newControllerTestDB(t)
+	db := database.GetDB()
+	nodes := []model.Inbound{
+		{Tag: "carry-exit", Remark: "exit", Port: 4611, Protocol: model.VLESS},
+		{Tag: "carry-exit-2", Remark: "exit 2", Port: 4612, Protocol: model.Trojan},
+		{Tag: "carry-hy", Remark: "hysteria", Port: 4613, Protocol: model.Hysteria},
+		{Tag: "carry-socks", Remark: "socks", Port: 4614, Protocol: model.Mixed},
+	}
+	for i := range nodes {
+		if err := db.Create(&nodes[i]).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	exit, exit2, hysteria, socks := nodes[0].Id, nodes[1].Id, nodes[2].Id, nodes[3].Id
+	engine := gin.New()
+	engine.Use(func(c *gin.Context) {
+		c.Set("I18n", func(_ locale.I18nType, key string, _ ...string) string { return key })
+		c.Next()
+	})
+	NewProxyChainController(engine.Group("/panel/api/proxyChains"))
+	add := func(target, relay int) apiReply {
+		return postJSON(t, engine, "/panel/api/proxyChains/add", map[string]any{"targetInboundId": target, "relayInboundId": relay, "enabled": true})
+	}
+	if reply := add(exit, hysteria); reply.Success || !strings.Contains(reply.Msg, "中转节点不支持") {
+		t.Fatalf("a hysteria relay was accepted: %+v", reply)
+	}
+	if reply := add(hysteria, socks); reply.Success || !strings.Contains(reply.Msg, "SOCKS5 中转不能连接") {
+		t.Fatalf("a SOCKS5 relay to a hysteria exit was accepted: %+v", reply)
+	}
+	if reply := add(exit, socks); !reply.Success {
+		t.Fatalf("SOCKS5 relay to a VLESS exit refused: %s", reply.Msg)
+	}
+	if reply := add(exit2, socks); reply.Success || !strings.Contains(reply.Msg, "SOCKS5 中转只能连接一个出口") {
+		t.Fatalf("a second exit for one SOCKS5 relay was accepted: %+v", reply)
+	}
+}

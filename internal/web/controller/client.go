@@ -61,6 +61,7 @@ func (a *ClientController) initRouter(g *gin.RouterGroup) {
 	g.GET("/traffic/:email", a.getTrafficByEmail)
 	g.GET("/subLinks/:subId", a.getSubLinks)
 	g.GET("/links/:email", a.getClientLinks)
+	g.GET("/socks5/:email", a.getSocks5)
 	g.POST("/happLink/:id", a.generateHappLink)
 
 	g.POST("/add", a.create)
@@ -750,6 +751,15 @@ func (a *ClientController) getClientLinks(c *gin.Context) {
 		return
 	}
 	jsonObj(c, links, nil)
+}
+
+func (a *ClientController) getSocks5(c *gin.Context) {
+	proxies, err := a.inboundService.Socks5Proxies(resolveHost(c), c.Param("email"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
+		return
+	}
+	jsonObj(c, proxies, nil)
 }
 
 func (a *ClientController) generateHappLink(c *gin.Context) {

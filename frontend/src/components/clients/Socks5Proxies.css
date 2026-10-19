@@ -1,0 +1,35 @@
+.socks5-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.socks5-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.socks5-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.socks5-row-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.socks5-value {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+/* A wrapped login keeps a whole box on every line instead of one split box. */
+.socks5-value code {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}

@@ -231,6 +231,17 @@ func TestSubJsonServiceVlessFlattened(t *testing.T) {
 	}
 }
 
+// Older inbounds store only "decryption"; xray-core refuses a VLESS outbound whose
+// encryption is empty, so the user's JSON config would not start at all.
+func TestSubJsonServiceVlessWithoutStoredEncryptionUsesNone(t *testing.T) {
+	inbound := &model.Inbound{Listen: "1.2.3.4", Port: 443, Protocol: model.VLESS, Settings: `{"decryption":"none"}`}
+
+	settings := outboundSettings(t, NewSubJsonService("", "", "", "", nil).genVless(&SubService{}, inbound, nil, model.Client{ID: "uuid-1"}, ""))
+	if settings["encryption"] != "none" {
+		t.Fatalf("encryption = %#v, want \"none\"", settings["encryption"])
+	}
+}
+
 func TestSubJsonServiceVlessFlowSuppressedByDisableFlow(t *testing.T) {
 	inbound := &model.Inbound{Listen: "1.2.3.4", Port: 443, Protocol: model.VLESS, Settings: `{"encryption":"none"}`, DisableFlow: true}
 	client := model.Client{ID: "uuid-1", Flow: "xtls-rprx-vision"}

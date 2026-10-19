@@ -81,6 +81,9 @@ func (a *accessAudit) open() error {
 }
 
 func (a *accessAudit) offer(e abuse.Event, m *xlog.AccessMessage) {
+	if abuse.IsChainSocksHop(e.Tag) {
+		return
+	}
 	protocol := "tcp"
 	if e.UDP {
 		protocol = "udp"

@@ -34,6 +34,10 @@ func planNodeOptions(db *gorm.DB) ([]PlanNodeOption, error) {
 	}
 	names := make(map[int]string)
 	for _, ib := range inbounds {
+		// SOCKS5 nodes are attached per user: no subscription can carry them.
+		if ib.Protocol == model.Mixed {
+			continue
+		}
 		name := strings.TrimSpace(ib.Remark)
 		if name == "" {
 			name = ib.Tag
@@ -52,6 +56,9 @@ func planNodeOptions(db *gorm.DB) ([]PlanNodeOption, error) {
 	out := []PlanNodeOption{}
 	for _, ib := range inbounds {
 		label := names[ib.Id]
+		if label == "" {
+			continue
+		}
 		out = append(out, PlanNodeOption{Key: model.PlanNodeKey(ib.Id, false), Label: label, InboundId: ib.Id})
 		for _, chain := range byTarget[ib.Id] {
 			relayID := chain.RelayInboundId

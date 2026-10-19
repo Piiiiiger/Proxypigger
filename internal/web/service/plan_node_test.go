@@ -123,3 +123,31 @@ func TestPlanExplicitRelayCanBeAddedRemovedAndAddedAgain(t *testing.T) {
 		}
 	}
 }
+
+// A plan's nodes become Clash proxies and group members, and a SOCKS5 node never
+// reaches a subscription; offering one would leave groups naming a missing proxy.
+func TestPlanNodeOptionsLeaveOutSocksNodes(t *testing.T) {
+	_, target, _ := setupPlanDB(t)
+	seedInboundConflict(t, "plan-socks", "0.0.0.0", 47110, model.Mixed, `{}`, `{"auth":"password","accounts":[]}`)
+	db := database.GetDB()
+	var socks model.Inbound
+	if err := db.Where("tag = ?", "plan-socks").First(&socks).Error; err != nil {
+		t.Fatal(err)
+	}
+	chain := model.ProxyChain{TargetInboundId: target, RelayInboundId: socks.Id, Enabled: true}
+	if err := db.Create(&chain).Error; err != nil {
+		t.Fatal(err)
+	}
+	options, err := planNodeOptions(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, o := range options {
+		if o.InboundId == socks.Id || o.RelayInboundId == socks.Id {
+			t.Fatalf("plan options offer a SOCKS5 node: %+v", o)
+		}
+	}
+	if !slices.ContainsFunc(options, func(o PlanNodeOption) bool { return o.Key == model.PlanNodeKey(target, false) }) {
+		t.Fatalf("the chain's exit lost its own option: %+v", options)
+	}
+}

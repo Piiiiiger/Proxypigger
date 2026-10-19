@@ -107,6 +107,10 @@ func (a *ProxyChainController) save(c *gin.Context) {
 		jsonMsg(c, "检查链式配置失败", err)
 		return
 	}
+	if err := service.ValidateChainRelay(db, id, &relay, &target); err != nil {
+		jsonMsg(c, "中转节点无法承载此线路", err)
+		return
+	}
 	wasEnabled := row.Enabled
 	oldTarget, oldRelay := row.TargetInboundId, row.RelayInboundId
 	row.Name, row.TargetInboundId, row.RelayInboundId, row.Enabled = in.Name, in.TargetInboundId, in.RelayInboundId, enabled

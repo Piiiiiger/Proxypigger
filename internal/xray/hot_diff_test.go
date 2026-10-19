@@ -443,23 +443,28 @@ func TestComputeHotDiff_TproxyStreamChangeNeedsRestart(t *testing.T) {
 // already running. A gRPC remove+add reported success but silently dropped
 // an account with a non-ASCII email; a full restart always produced the
 // correct account list. This must force a restart, not a hot swap.
+// A user SOCKS5 inbound ("mixed", logins named after Pigger users) has the same shape.
 func TestComputeHotDiff_SocksAccountsSettingsChangeNeedsRestart(t *testing.T) {
-	relayIb := InboundConfig{
-		Listen:   json_util.RawMessage(`"127.0.0.1"`),
-		Port:     65110,
-		Protocol: "socks",
-		Tag:      "in-443-udp",
-		Settings: json_util.RawMessage(`{"auth":"password","udp":true,"accounts":[{"user":"Роутер_awg","pass":"p"}]}`),
-	}
-	oldCfg := makeHotConfig()
-	oldCfg.InboundConfigs = append(oldCfg.InboundConfigs, relayIb)
-	newCfg := makeHotConfig()
-	changedIb := relayIb
-	changedIb.Settings = json_util.RawMessage(`{"auth":"password","udp":true,"accounts":[{"user":"Роутер_awg","pass":"p"},{"user":"Майфун🛟","pass":"p"}]}`)
-	newCfg.InboundConfigs = append(newCfg.InboundConfigs, changedIb)
+	for _, protocol := range []string{"socks", "mixed"} {
+		t.Run(protocol, func(t *testing.T) {
+			relayIb := InboundConfig{
+				Listen:   json_util.RawMessage(`"127.0.0.1"`),
+				Port:     65110,
+				Protocol: protocol,
+				Tag:      "in-443-udp",
+				Settings: json_util.RawMessage(`{"auth":"password","udp":true,"accounts":[{"user":"Роутер_awg","pass":"p"}]}`),
+			}
+			oldCfg := makeHotConfig()
+			oldCfg.InboundConfigs = append(oldCfg.InboundConfigs, relayIb)
+			newCfg := makeHotConfig()
+			changedIb := relayIb
+			changedIb.Settings = json_util.RawMessage(`{"auth":"password","udp":true,"accounts":[{"user":"Роутер_awg","pass":"p"},{"user":"Майфун🛟","pass":"p"}]}`)
+			newCfg.InboundConfigs = append(newCfg.InboundConfigs, changedIb)
 
-	if _, ok := ComputeHotDiff(oldCfg, newCfg); ok {
-		t.Fatal("a password-auth SOCKS5 relay's account-list change must force a full restart, not a gRPC hot swap")
+			if _, ok := ComputeHotDiff(oldCfg, newCfg); ok {
+				t.Fatal("a password-auth SOCKS5 inbound's account-list change must force a full restart, not a gRPC hot swap")
+			}
+		})
 	}
 }
 
@@ -467,18 +472,22 @@ func TestComputeHotDiff_SocksAccountsSettingsChangeNeedsRestart(t *testing.T) {
 // new-inbound test above: a brand-new AmneziaWG relay inbound must also
 // force a restart, for the same reliability reason.
 func TestComputeHotDiff_NewSocksAccountsInboundNeedsRestart(t *testing.T) {
-	oldCfg := makeHotConfig()
-	newCfg := makeHotConfig()
-	newCfg.InboundConfigs = append(newCfg.InboundConfigs, InboundConfig{
-		Listen:   json_util.RawMessage(`"127.0.0.1"`),
-		Port:     65110,
-		Protocol: "socks",
-		Tag:      "in-443-udp",
-		Settings: json_util.RawMessage(`{"auth":"password","udp":true,"accounts":[{"user":"Майфун🛟","pass":"p"}]}`),
-	})
+	for _, protocol := range []string{"socks", "mixed"} {
+		t.Run(protocol, func(t *testing.T) {
+			oldCfg := makeHotConfig()
+			newCfg := makeHotConfig()
+			newCfg.InboundConfigs = append(newCfg.InboundConfigs, InboundConfig{
+				Listen:   json_util.RawMessage(`"127.0.0.1"`),
+				Port:     65110,
+				Protocol: protocol,
+				Tag:      "in-443-udp",
+				Settings: json_util.RawMessage(`{"auth":"password","udp":true,"accounts":[{"user":"Майфун🛟","pass":"p"}]}`),
+			})
 
-	if _, ok := ComputeHotDiff(oldCfg, newCfg); ok {
-		t.Fatal("adding a new password-auth SOCKS5 relay inbound must force a full restart, not a gRPC hot add")
+			if _, ok := ComputeHotDiff(oldCfg, newCfg); ok {
+				t.Fatal("adding a new password-auth SOCKS5 inbound must force a full restart, not a gRPC hot add")
+			}
+		})
 	}
 }
 

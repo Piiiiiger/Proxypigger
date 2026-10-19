@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { keys } from '@/api/queryKeys';
 import {
+  Alert,
   Button,
   Card,
   ConfigProvider,
@@ -76,6 +77,11 @@ export default function ChainsPage() {
   const targetLabel = inboundName.get(targetId) || '目标节点';
   const relayLabel = inboundName.get(relayId) || '中转节点';
   const defaultRelayName = targetLabel + '（中转·' + relayLabel + '）';
+  const protocolOf = useMemo(
+    () => new Map(inbounds.map((item) => [item.id, item.protocol || ''])),
+    [inbounds],
+  );
+  const socksRelay = protocolOf.get(relayId) === 'mixed';
   const load = useCallback(async () => {
     try {
       const [chainMsg, inboundMsg] = await Promise.all([
@@ -196,18 +202,21 @@ export default function ChainsPage() {
                   },
                   {
                     title: '订阅显示名称',
-                    render: (_: unknown, row: Chain) => (
-                      <div className="chain-name-preview">
-                        <div>
-                          <Tag color="purple">中转</Tag>
-                          {row.relayName ||
-                            (inboundName.get(row.targetInboundId) || '目标节点') +
-                              '（中转·' +
-                              (inboundName.get(row.relayInboundId) || '中转节点') +
-                              '）'}
+                    render: (_: unknown, row: Chain) =>
+                      protocolOf.get(row.relayInboundId) === 'mixed' ? (
+                        <Tag>SOCKS5 · 服务器转发，不进订阅</Tag>
+                      ) : (
+                        <div className="chain-name-preview">
+                          <div>
+                            <Tag color="purple">中转</Tag>
+                            {row.relayName ||
+                              (inboundName.get(row.targetInboundId) || '目标节点') +
+                                '（中转·' +
+                                (inboundName.get(row.relayInboundId) || '中转节点') +
+                                '）'}
+                          </div>
                         </div>
-                      </div>
-                    ),
+                      ),
                   },
                   {
                     title: '配置状态',
@@ -285,19 +294,30 @@ export default function ChainsPage() {
               placeholder="先连接这个节点"
             />
           </Form.Item>
-          <Form.Item
-            name="relayName"
-            label="中转显示名称"
-            extra="目标节点本身的名称用于直连；这里只设置经过中转后的名称。"
-          >
-            <Input allowClear maxLength={128} placeholder={defaultRelayName} />
-          </Form.Item>
-          <div className="chain-name-preview chain-name-preview--form">
-            <div>
-              <Tag color="purple">中转</Tag>
-              {relayName?.trim() || defaultRelayName}
-            </div>
-          </div>
+          {socksRelay ? (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+              title="SOCKS5 中转由服务器转发：用户登录中转节点的 SOCKS5，中转再以该用户自己的身份连接目标节点，只在目标计费一次。用户需要同时关联这两个节点；这条线路不进入订阅和套餐。"
+            />
+          ) : (
+            <>
+              <Form.Item
+                name="relayName"
+                label="中转显示名称"
+                extra="目标节点本身的名称用于直连；这里只设置经过中转后的名称。"
+              >
+                <Input allowClear maxLength={128} placeholder={defaultRelayName} />
+              </Form.Item>
+              <div className="chain-name-preview chain-name-preview--form">
+                <div>
+                  <Tag color="purple">中转</Tag>
+                  {relayName?.trim() || defaultRelayName}
+                </div>
+              </div>
+            </>
+          )}
           <Form.Item name="enabled" label="启用" valuePropName="checked">
             <Switch />
           </Form.Item>

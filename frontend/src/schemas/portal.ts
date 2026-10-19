@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { TrafficDaySchema } from '@/generated/zod';
+import { Socks5ProxySchema, TrafficDaySchema } from '@/generated/zod';
 
 export const PortalLoginSchema = z.object({
   username: z.string().trim().min(1, 'subscription.portal.required'),
@@ -56,6 +56,8 @@ export const PortalDataSchema = z.object({
   daily: z.array(TrafficDaySchema),
   // Whether to offer the probe view. A server older than that view sends no flag.
   probe: z.boolean().default(false),
+  // SOCKS5 logins, which no subscription carries; older servers send none.
+  socks5: z.array(Socks5ProxySchema).nullable().default([]),
 });
 export type PortalData = z.infer<typeof PortalDataSchema>;
 

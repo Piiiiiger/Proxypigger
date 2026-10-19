@@ -39,6 +39,8 @@ type SubJsonService struct {
 
 	// dnsBlock is the panel DNS override, fixed for the service's lifetime.
 	dnsBlock map[string]any
+	// pick chooses among REALITY server names and short IDs; nil is random.
+	pick func(n int) int
 
 	SubService *SubService
 }
@@ -796,18 +798,25 @@ func (s *SubJsonService) realityData(rData map[string]any, clientKey string) map
 	rltyData["spiderX"] = deriveSpiderX(seed, clientKey)
 	shortIds, ok := rData["shortIds"].([]any)
 	if ok && len(shortIds) > 0 {
-		rltyData["shortId"], _ = shortIds[random.Num(len(shortIds))].(string)
+		rltyData["shortId"], _ = shortIds[s.choose(len(shortIds))].(string)
 	} else {
 		rltyData["shortId"] = ""
 	}
 	serverNames, ok := rData["serverNames"].([]any)
 	if ok && len(serverNames) > 0 {
-		rltyData["serverName"], _ = serverNames[random.Num(len(serverNames))].(string)
+		rltyData["serverName"], _ = serverNames[s.choose(len(serverNames))].(string)
 	} else {
 		rltyData["serverName"] = ""
 	}
 
 	return rltyData
+}
+
+func (s *SubJsonService) choose(n int) int {
+	if s.pick != nil {
+		return s.pick(n)
+	}
+	return random.Num(n)
 }
 
 func (s *SubJsonService) genVnext(inbound *model.Inbound, streamSettings json_util.RawMessage, client model.Client, mux string) json_util.RawMessage {
@@ -846,6 +855,9 @@ func (s *SubJsonService) genVless(subReq *SubService, inbound *model.Inbound, st
 	// Add encryption for VLESS outbound from inbound settings
 	inboundSettings := subReq.linkSettings(inbound)
 	encryption, _ := inboundSettings["encryption"].(string)
+	if strings.TrimSpace(encryption) == "" {
+		encryption = "none"
+	}
 
 	settings := map[string]any{
 		"address":    inbound.Listen,

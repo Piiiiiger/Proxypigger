@@ -63,6 +63,7 @@ type portalData struct {
 	Page          map[string]any           `json:"page"`
 	Plan          *portalPlan              `json:"plan"`
 	Daily         []service.TrafficDay     `json:"daily"`
+	Socks5        []service.Socks5Proxy    `json:"socks5"`
 	// Probe offers the probe view: set when one of the client's hosts is linked.
 	Probe bool `json:"probe"`
 }
@@ -383,6 +384,11 @@ func (a *SUBController) portalData(c *gin.Context) {
 	if data.Daily, err = a.statsService.ClientDaily(client.Email, time.Now().In(loc), portalDailyDays); err != nil {
 		logger.Warning("portal: could not load daily traffic:", err)
 		data.Daily = []service.TrafficDay{}
+	}
+	_, host, _, _ := a.subService.ResolveRequest(c)
+	if data.Socks5, err = Socks5ForClient(host, client.Email); err != nil {
+		logger.Warning("portal: could not list the client's SOCKS5 logins:", err)
+		data.Socks5 = []service.Socks5Proxy{}
 	}
 	if data.Probe, err = a.probeService.ClientHasLinkedHost(client); err != nil {
 		logger.Warning("portal: could not check the client's probe links:", err)

@@ -7544,6 +7544,54 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "Socks5Proxy": {
+    "description": "Socks5Proxy is one SOCKS5 login of a user: where to connect, and the node the\ntraffic leaves from when this one relays it on through a chain.",
+    "properties": {
+      "enable": {
+        "example": true,
+        "type": "boolean"
+      },
+      "exit": {
+        "example": "日本-家宽",
+        "type": "string"
+      },
+      "host": {
+        "example": "198.51.100.10",
+        "type": "string"
+      },
+      "inboundId": {
+        "example": 31,
+        "type": "integer"
+      },
+      "password": {
+        "example": "4f0c7c2d9a1b4e5f8a6b3c2d1e0f9a8b",
+        "type": "string"
+      },
+      "port": {
+        "example": 30001,
+        "type": "integer"
+      },
+      "remark": {
+        "example": "日本-NOSLA SOCKS5",
+        "type": "string"
+      },
+      "username": {
+        "example": "alice",
+        "type": "string"
+      }
+    },
+    "required": [
+      "enable",
+      "exit",
+      "host",
+      "inboundId",
+      "password",
+      "port",
+      "remark",
+      "username"
+    ],
+    "type": "object"
+  },
   "SubBalancer": {
     "description": "SubBalancer is one extra JSON-subscription config document whose members are\nthe selected inbounds' proxy outbounds. SortOrder shares SubSortIndex semantics.",
     "properties": {

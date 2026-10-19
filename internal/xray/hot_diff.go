@@ -345,9 +345,10 @@ func inboundUsesTproxy(ib *InboundConfig) bool {
 }
 
 // inboundUsesSocksAccounts reports whether an inbound is a password-auth
-// SOCKS5 inbound with one or more named accounts -- the shape
+// SOCKS5 inbound with one or more named accounts -- the shape of
 // internal/amneziawgnet's per-inbound relay (internal/web/service/xray.go's
-// injectAmneziawgnetSocks) is the only generator of in this fork; every
+// injectAmneziawgnetSocks) and of user SOCKS5 ("mixed") inbounds, whose
+// logins are Pigger user names, non-ASCII ones included; every
 // other SOCKS5 bridge this fork builds (panel egress, per-node egress,
 // mtproto egress) uses "noauth" with no per-account identity at all, so this
 // check can't accidentally rope in one of those lower-churn bridges.
@@ -367,7 +368,7 @@ func inboundUsesTproxy(ib *InboundConfig) bool {
 // full restart here is the same defensive choice already made above for
 // REALITY and TPROXY.
 func inboundUsesSocksAccounts(ib *InboundConfig) bool {
-	if ib == nil || ib.Protocol != "socks" || len(ib.Settings) == 0 {
+	if ib == nil || (ib.Protocol != "socks" && ib.Protocol != "mixed") || len(ib.Settings) == 0 {
 		return false
 	}
 	var settings struct {

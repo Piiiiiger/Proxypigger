@@ -824,6 +824,10 @@ func servedEmails(cfg *xray.Config) []string {
 			Clients []struct {
 				Email string `json:"email"`
 			} `json:"clients"`
+			// A user SOCKS5 inbound logs its users in by name: Xray reports that name as the user.
+			Accounts []struct {
+				User string `json:"user"`
+			} `json:"accounts"`
 		}
 		if len(ib.Settings) == 0 || json.Unmarshal(ib.Settings, &settings) != nil {
 			continue
@@ -831,6 +835,13 @@ func servedEmails(cfg *xray.Config) []string {
 		for _, c := range settings.Clients {
 			if c.Email != "" {
 				out = append(out, c.Email)
+			}
+		}
+		if ib.Protocol == string(model.Mixed) {
+			for _, a := range settings.Accounts {
+				if a.User != "" {
+					out = append(out, a.User)
+				}
 			}
 		}
 	}

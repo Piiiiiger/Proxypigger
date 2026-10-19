@@ -1821,6 +1821,18 @@ export const SignupGuardSchema = z.object({
 });
 export type SignupGuard = z.infer<typeof SignupGuardSchema>;
 
+export const Socks5ProxySchema = z.object({
+  enable: z.boolean(),
+  exit: z.string(),
+  host: z.string(),
+  inboundId: z.number().int(),
+  password: z.string(),
+  port: z.number().int(),
+  remark: z.string(),
+  username: z.string(),
+});
+export type Socks5Proxy = z.infer<typeof Socks5ProxySchema>;
+
 export const SubBalancerSchema = z.object({
   createdAt: z.number().int(),
   enabled: z.boolean(),

@@ -107,10 +107,10 @@ func TestFloodTripsOnABurstNotOnADownloadManager(t *testing.T) {
 	}
 }
 
-// A banned device retrying into its blackhole, or a relay identity that can only
-// reach the next Pigger server, is no attack: neither leaves for anyone else.
+// A banned device's retries and a relay's hops (transit identities, SOCKS5 relays)
+// never leave for anyone else: the exit judges that traffic under the account, once.
 func TestBansAndRelayHopsAreNotTheAccountsTraffic(t *testing.T) {
-	for _, outbound := range []string{TagBlock, TagIPLimitBlock, TagChainTransitDirect, TagChainTransitBlock} {
+	for _, outbound := range []string{TagBlock, TagIPLimitBlock, TagChainTransitDirect, TagChainTransitBlock, ChainSocksTag(7, "carol")} {
 		d := NewDetector(DefaultRules())
 		for range 3000 {
 			connect(d, t0, "carol", "192.0.2.73", 443, outbound)

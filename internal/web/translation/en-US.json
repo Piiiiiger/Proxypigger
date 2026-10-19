@@ -790,7 +790,8 @@
         "peerNumberConfig": "Peer {n} config"
       },
       "sniffingDestOverride": "Destination override",
-      "intro": "Listening ports, protocols and transports, with the users each one serves."
+      "intro": "Listening ports, protocols and transports, with the users each one serves.",
+      "mixedUsersNote": "Users attached to this inbound log in with their user name and SOCKS5 password, with the same billing, quota, IP limit and expiry as VLESS; the accounts below then stop working."
     },
     "clients": {
       "tabBasics": "Basics",
@@ -872,7 +873,10 @@
       "hwidDeleted": "Device removed.",
       "clearHwidsConfirm": "Remove all registered devices? Every device will need to re-register on its next subscription fetch.",
       "password": "Password",
-      "passwordDesc": "Used by Trojan, Shadowsocks, and TUIC clients; ignored for VLESS, VMess, Hysteria, and WireGuard.",
+      "passwordDesc": "Used by Trojan, Shadowsocks, TUIC, and SOCKS5 clients; ignored for VLESS, VMess, Hysteria, and WireGuard.",
+      "socks5Title": "SOCKS5 proxies",
+      "socks5Hint": "Not in any subscription. SOCKS5 is not encrypted: use it from abroad or through a VPN.",
+      "socks5Exit": "Exits at {name}",
       "subId": "Subscription ID",
       "subIdDesc": "Also works as this user's Telegram bot invite code: whoever sends it to the bot is linked to this user. Keep it long and random — a short or guessable ID can be claimed by someone else.",
       "online": "Online",

@@ -251,6 +251,9 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		}
 		xrayConfig.LogConfig = withAbuseAccessLog(xrayConfig.LogConfig)
 	}
+	if err := injectSocksRelayHops(xrayConfig); err != nil {
+		return nil, err
+	}
 	if err := injectIpLimitBans(xrayConfig, transitOwners, time.Now()); err != nil {
 		return nil, err
 	}
@@ -292,6 +295,9 @@ func (s *XrayService) GetAgentXrayConfig(nodeID int) (*xray.Config, error) {
 		if err := injectAbuseChecks(xrayConfig); err != nil {
 			return nil, err
 		}
+	}
+	if err := injectSocksRelayHops(xrayConfig); err != nil {
+		return nil, err
 	}
 	if err := injectIpLimitBans(xrayConfig, transitOwners, time.Now()); err != nil {
 		return nil, err
@@ -368,6 +374,7 @@ func (s *XrayService) buildInboundConfig(inbound *model.Inbound) (*xray.InboundC
 
 	finalClients := make([]any, 0, len(dbClients))
 	var wgPeers []any
+	socksAccounts := make([]any, 0, len(dbClients))
 	for i := range dbClients {
 		c := dbClients[i]
 		if enable, exists := enableMap[c.Email]; exists && !enable {
@@ -425,19 +432,35 @@ func (s *XrayService) buildInboundConfig(inbound *model.Inbound) (*xray.InboundC
 			}
 			wgPeers = append(wgPeers, model.WireguardPeerFromClient(c))
 			continue
+		case model.Mixed:
+			// Xray reports a SOCKS5/HTTP login name as the user, so billing and bans follow it.
+			if c.Password != "" {
+				socksAccounts = append(socksAccounts, map[string]any{"user": c.Email, "pass": c.Password})
+			}
+			continue
 		}
 		finalClients = append(finalClients, entry)
 	}
 
 	var mutated bool
-	if inbound.Protocol == model.WireGuard {
+	switch inbound.Protocol {
+	case model.WireGuard:
 		delete(settings, "clients")
 		if wgPeers == nil {
 			wgPeers = []any{}
 		}
 		settings["peers"] = wgPeers
 		mutated = true
-	} else {
+	case model.Mixed:
+		_, hadClients := settings["clients"]
+		delete(settings, "clients")
+		// Users replace the stored logins: a form default left beside them would skip quota and expiry.
+		if len(dbClients) > 0 {
+			settings["auth"] = "password"
+			settings["accounts"] = socksAccounts
+		}
+		mutated = hadClients || len(dbClients) > 0
+	default:
 		_, hadClients := settings["clients"]
 		mutated = hadClients || len(finalClients) > 0
 		if mutated {

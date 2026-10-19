@@ -1689,6 +1689,15 @@ export const sections: readonly Section[] = [
         response:
           '{\n  "success": true,\n  "obj": [\n    "vless://uuid@host:443?...#user1"\n  ]\n}',
       },
+      {
+        method: 'GET',
+        path: '/panel/api/clients/socks5/:email',
+        summary:
+          'List the SOCKS5 logins of one client: every attached `mixed` inbound with the address and port a share link would advertise (the node address and NAT port, or the host this request reached for an inbound on the panel itself), the client name as username and its SOCKS5 password, and the exit node when the inbound relays on through a chain. Subscriptions never carry these.',
+        params: [{ name: 'email', in: 'path', type: 'string', desc: 'Client email.' }],
+        responseSchema: 'Socks5Proxy',
+        responseSchemaArray: true,
+      },
     ],
   },
 

@@ -2330,6 +2330,16 @@ export const EXAMPLES: Record<string, unknown> = {
     "action": "record",
     "limit": 3
   },
+  "Socks5Proxy": {
+    "enable": true,
+    "exit": "日本-家宽",
+    "host": "198.51.100.10",
+    "inboundId": 31,
+    "password": "4f0c7c2d9a1b4e5f8a6b3c2d1e0f9a8b",
+    "port": 30001,
+    "remark": "日本-NOSLA SOCKS5",
+    "username": "alice"
+  },
   "SubBalancer": {
     "createdAt": 1710000000000,
     "enabled": true,

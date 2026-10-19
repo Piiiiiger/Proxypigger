@@ -20,6 +20,7 @@ type chainTransitRoute struct {
 	relay   model.Inbound
 	target  model.Inbound
 	granted map[string]bool
+	targets map[string]model.Client
 }
 
 func loadChainTransitRoutes() ([]chainTransitRoute, error) {
@@ -30,7 +31,7 @@ func loadChainTransitRoutes() ([]chainTransitRoute, error) {
 	}
 	var routes []chainTransitRoute
 	for _, chain := range chains {
-		r := chainTransitRoute{chain: chain, granted: map[string]bool{}}
+		r := chainTransitRoute{chain: chain, granted: map[string]bool{}, targets: map[string]model.Client{}}
 		if err := db.First(&r.relay, chain.RelayInboundId).Error; err != nil {
 			return nil, err
 		}
@@ -47,11 +48,20 @@ func loadChainTransitRoutes() ([]chainTransitRoute, error) {
 		for _, c := range targets {
 			if c.Enable {
 				r.granted[c.Email] = true
+				r.targets[c.Email] = c
 			}
 		}
 		routes = append(routes, r)
 	}
 	return routes, nil
+}
+
+// chainRelayOutbound builds the outbound a SOCKS5 relay dials its chain exit with,
+// as the user's own client would; the subscription package owns client configs.
+var chainRelayOutbound func(target *model.Inbound, client model.Client) (map[string]any, error)
+
+func RegisterChainRelayOutbound(b func(target *model.Inbound, client model.Client) (map[string]any, error)) {
+	chainRelayOutbound = b
 }
 
 func chainTransitProtocol(p model.Protocol) bool {
@@ -71,14 +81,8 @@ func injectChainTransit(cfg *xray.Config) (map[string]string, error) {
 	var extraRules []any
 	for _, r := range routes {
 		chain, relay, target := r.chain, r.relay, r.target
-		var ib *xray.InboundConfig
-		for i := range cfg.InboundConfigs {
-			if cfg.InboundConfigs[i].Tag == relay.Tag {
-				ib = &cfg.InboundConfigs[i]
-				break
-			}
-		}
-		if ib == nil {
+		ib := inboundConfigByTag(cfg, relay.Tag)
+		if ib == nil || relay.Protocol == model.Mixed {
 			continue
 		}
 		if !chainTransitProtocol(relay.Protocol) {
@@ -151,6 +155,124 @@ func injectChainTransit(cfg *xray.Config) (map[string]string, error) {
 		map[string]any{"tag": abuse.TagChainTransitDirect, "protocol": "freedom", "settings": map[string]any{}},
 		map[string]any{"tag": abuse.TagChainTransitBlock, "protocol": "blackhole", "settings": map[string]any{}})
 	return owners, err
+}
+
+func inboundConfigByTag(cfg *xray.Config, tag string) *xray.InboundConfig {
+	for i := range cfg.InboundConfigs {
+		if cfg.InboundConfigs[i].Tag == tag {
+			return &cfg.InboundConfigs[i]
+		}
+	}
+	return nil
+}
+
+// injectSocksRelayHops carries SOCKS5 relay users on to their chain exits. It runs
+// after the abuse checks, whose rules would otherwise keep relayed traffic here.
+func injectSocksRelayHops(cfg *xray.Config) error {
+	routes, err := loadChainTransitRoutes()
+	if err != nil {
+		return err
+	}
+	var rules []any
+	var hops []map[string]any
+	level := -1
+	for _, r := range routes {
+		ib := inboundConfigByTag(cfg, r.relay.Tag)
+		if ib == nil || r.relay.Protocol != model.Mixed {
+			continue
+		}
+		if level < 0 {
+			if level, err = addUnbilledPolicyLevel(cfg); err != nil {
+				return err
+			}
+		}
+		relayRules, outbounds, err := socksRelayHops(ib, r, level)
+		if err != nil {
+			return err
+		}
+		rules = append(rules, relayRules...)
+		hops = append(hops, outbounds...)
+	}
+	if len(rules) == 0 {
+		return nil
+	}
+	return prependRoutingWithOutbound(cfg, rules,
+		append(hops, map[string]any{"tag": abuse.TagChainSocksBlock, "protocol": "blackhole", "settings": map[string]any{}})...)
+}
+
+// socksRelayHops carries each SOCKS5 login of a relay on to the chain exit as that
+// user, at a level without traffic stats: the exit bills the same bytes already.
+func socksRelayHops(ib *xray.InboundConfig, r chainTransitRoute, level int) ([]any, []map[string]any, error) {
+	var settings map[string]any
+	if err := json.Unmarshal(ib.Settings, &settings); err != nil {
+		return nil, nil, err
+	}
+	settings["userLevel"] = level
+	raw, err := json.Marshal(settings)
+	if err != nil {
+		return nil, nil, err
+	}
+	ib.Settings = raw
+	accounts, _ := settings["accounts"].([]any)
+	var rules []any
+	var outbounds []map[string]any
+	for _, v := range accounts {
+		account, _ := v.(map[string]any)
+		user, _ := account["user"].(string)
+		client, ok := r.targets[user]
+		if !ok {
+			continue
+		}
+		if chainRelayOutbound == nil {
+			return nil, nil, fmt.Errorf("chain %d: no outbound builder for SOCKS5 relays", r.chain.Id)
+		}
+		out, err := chainRelayOutbound(&r.target, client)
+		if err != nil {
+			return nil, nil, fmt.Errorf("chain %d: %w", r.chain.Id, err)
+		}
+		tag := abuse.ChainSocksTag(r.chain.Id, user)
+		out["tag"] = tag
+		outbounds = append(outbounds, out)
+		rules = append(rules, map[string]any{"type": "field", "inboundTag": []string{r.relay.Tag}, "user": []string{user}, "outboundTag": tag})
+	}
+	rules = append(rules, map[string]any{"type": "field", "inboundTag": []string{r.relay.Tag}, "outboundTag": abuse.TagChainSocksBlock})
+	return rules, outbounds, nil
+}
+
+// addUnbilledPolicyLevel copies level 0 under a free number with traffic stats
+// off; online stats stay on, so the relay still counts devices for the IP limit.
+func addUnbilledPolicyLevel(cfg *xray.Config) (int, error) {
+	policy := map[string]any{}
+	if len(cfg.Policy) > 0 {
+		if err := json.Unmarshal(cfg.Policy, &policy); err != nil {
+			return 0, err
+		}
+	}
+	levels, _ := policy["levels"].(map[string]any)
+	if levels == nil {
+		levels = map[string]any{}
+	}
+	level := 100
+	for levels[strconv.Itoa(level)] != nil {
+		level++
+	}
+	unbilled := map[string]any{}
+	if base, ok := levels["0"].(map[string]any); ok {
+		for k, v := range base {
+			unbilled[k] = v
+		}
+	}
+	unbilled["statsUserUplink"] = false
+	unbilled["statsUserDownlink"] = false
+	unbilled["statsUserOnline"] = true
+	levels[strconv.Itoa(level)] = unbilled
+	policy["levels"] = levels
+	raw, err := json.Marshal(policy)
+	if err != nil {
+		return 0, err
+	}
+	cfg.Policy = raw
+	return level, nil
 }
 
 // prependRoutingWithOutbound adds outbounds under tags the template must not use

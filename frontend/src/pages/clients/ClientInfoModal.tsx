@@ -17,6 +17,8 @@ import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import ClientHwidListModal from '@/components/clients/ClientHwidList';
 import ConfigBlock from '@/components/clients/ConfigBlock';
+import Socks5ProxyList from '@/components/clients/Socks5Proxies';
+import { Socks5ProxySchema, type Socks5Proxy } from '@/generated/zod';
 import {
   buildWireguardClientConfig,
   findWireguardInbounds,
@@ -110,6 +112,7 @@ export default function ClientInfoModal({
   const dateLabel = (ts?: number) => (!ts || ts <= 0 ? '-' : IntlUtil.formatDate(ts, datepicker));
   const [messageApi, messageContextHolder] = message.useMessage();
   const [links, setLinks] = useState<string[]>([]);
+  const [socks5, setSocks5] = useState<Socks5Proxy[]>([]);
   const onlineIps = useClientOnlineIps(client?.email);
   const [ipsModalOpen, setIpsModalOpen] = useState(false);
   const {
@@ -134,6 +137,7 @@ export default function ClientInfoModal({
     setSyncedSubId(openSubId);
     if (openSubId === null) {
       setLinks([]);
+      setSocks5([]);
       onlineIps.reset();
       setIpsModalOpen(false);
       resetHwids();
@@ -155,6 +159,24 @@ export default function ClientInfoModal({
       cancelled = true;
     };
   }, [open, client?.subId]);
+
+  useEffect(() => {
+    if (!open || !client?.email) return;
+    let cancelled = false;
+    (async () => {
+      const msg = (await HttpUtil.get(
+        `/panel/api/clients/socks5/${encodeURIComponent(client.email)}`,
+        undefined,
+        { silent: true },
+      )) as ApiMsg<unknown>;
+      if (cancelled) return;
+      const parsed = Socks5ProxySchema.array().safeParse(msg?.success ? msg.obj : null);
+      setSocks5(parsed.success ? parsed.data : []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, client?.email]);
 
   const traffic = client?.traffic || null;
   const totalBytes = client?.totalGB || 0;
@@ -753,6 +775,13 @@ export default function ClientInfoModal({
                     </div>
                   );
                 })}
+              </>
+            )}
+
+            {socks5.length > 0 && (
+              <>
+                <Divider>{t('pages.clients.socks5Title')}</Divider>
+                <Socks5ProxyList proxies={socks5} />
               </>
             )}
 

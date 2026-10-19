@@ -185,7 +185,7 @@ var notOwnTraffic = map[string]bool{
 
 // Observe counts one connection.
 func (d *Detector) Observe(e Event) {
-	if e.Email == "" || notOwnTraffic[e.Tag] {
+	if e.Email == "" || notOwnTraffic[e.Tag] || IsChainSocksHop(e.Tag) {
 		return
 	}
 	d.mu.Lock()

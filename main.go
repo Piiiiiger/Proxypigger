@@ -115,6 +115,8 @@ func runWebServer() {
 
 	server := web.NewServer()
 	global.SetWebServer(server)
+	// Before the first config build: a SOCKS5 relay's chain hop needs it.
+	service.RegisterChainRelayOutbound(sub.ChainRelayOutbound)
 	err = server.Start()
 	if err != nil {
 		log.Fatalf("Error starting web server: %v", err)

@@ -790,7 +790,8 @@
           "expired": "Expired",
           "suspended": "一時停止中"
         }
-      }
+      },
+      "mixedUsersNote": "このインバウンドに紐付けたユーザーは、自分のユーザー名と SOCKS5 パスワードでログインし、課金・クォータ・IP 制限・有効期限は VLESS と同じです。紐付けると、下のアカウントは使えなくなります。"
     },
     "clients": {
       "tabBasics": "基本",
@@ -872,7 +873,10 @@
       "hwidDeleted": "デバイスを削除しました。",
       "clearHwidsConfirm": "登録済みのすべてのデバイスを削除しますか?各デバイスは次回のサブスクリプション取得時に再登録が必要になります。",
       "password": "パスワード",
-      "passwordDesc": "Trojan と Shadowsocks のクライアントのみが使用します。VLESS、VMess、Hysteria、WireGuard では無視されます。",
+      "passwordDesc": "Trojan、Shadowsocks、TUIC、SOCKS5 のクライアントが使用します。VLESS、VMess、Hysteria、WireGuard では無視されます。",
+      "socks5Title": "SOCKS5 プロキシ",
+      "socks5Hint": "どのサブスクリプションにも含まれません。SOCKS5 は暗号化されないため、国外から、または VPN 経由で使ってください。",
+      "socks5Exit": "出口 {name}",
       "subId": "サブスクリプション ID",
       "subIdDesc": "このユーザーの Telegram ボット招待コードとしても使われます。ボットに送信した人がこのユーザーに紐付けられます。長くランダムな値にしてください。短い、または推測しやすい ID は他人に取得されるおそれがあります。",
       "online": "オンライン",

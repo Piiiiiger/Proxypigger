@@ -50,6 +50,10 @@ func (p *LinkProvider) LinksForInbounds(host string, inbounds []*model.Inbound) 
 	return out
 }
 
+func (p *LinkProvider) Socks5ForClient(host, email string) ([]service.Socks5Proxy, error) {
+	return Socks5ForClient(host, email)
+}
+
 func splitLinkLines(raw string) []string {
 	if raw == "" {
 		return nil

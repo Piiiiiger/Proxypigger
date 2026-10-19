@@ -790,7 +790,8 @@
       },
       "sniffingDestOverride": "目标覆盖",
       "advancedTitle": "高级设置",
-      "intro": "监听端口、协议与传输方式，以及每个节点下的用户。"
+      "intro": "监听端口、协议与传输方式，以及每个节点下的用户。",
+      "mixedUsersNote": "关联到这个入站的用户用自己的用户名和 SOCKS5 密码登录，计费、配额、IP 限制和到期与 VLESS 相同；关联用户后，下面的账号随即失效。"
     },
     "clients": {
       "tabBasics": "基本",
@@ -872,7 +873,10 @@
       "hwidDeleted": "设备已移除。",
       "clearHwidsConfirm": "移除所有已注册的设备？每台设备在下次获取订阅时都需要重新注册。",
       "password": "密码",
-      "passwordDesc": "用于 Trojan、Shadowsocks 和 TUIC 客户端；对 VLESS、VMess、Hysteria 和 WireGuard 忽略。",
+      "passwordDesc": "用于 Trojan、Shadowsocks、TUIC 和 SOCKS5 客户端；对 VLESS、VMess、Hysteria 和 WireGuard 忽略。",
+      "socks5Title": "SOCKS5 代理",
+      "socks5Hint": "不在任何订阅里。SOCKS5 不加密，请在境外或通过 VPN 使用。",
+      "socks5Exit": "出口 {name}",
       "subId": "订阅 ID",
       "subIdDesc": "同时用作该用户的 Telegram 机器人邀请码：任何人将其发送给机器人即会绑定到此用户。请保持足够长且随机——过短或易猜的 ID 可能被他人抢先绑定。",
       "online": "在线",

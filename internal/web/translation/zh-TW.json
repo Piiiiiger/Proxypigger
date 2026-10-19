@@ -790,7 +790,8 @@
           "expired": "Expired",
           "suspended": "已暫停"
         }
-      }
+      },
+      "mixedUsersNote": "關聯到此入站的使用者以自己的使用者名稱和 SOCKS5 密碼登入，計費、配額、IP 限制與到期和 VLESS 相同；關聯使用者後，下方帳號隨即失效。"
     },
     "clients": {
       "tabBasics": "基本",
@@ -872,7 +873,10 @@
       "hwidDeleted": "裝置已移除。",
       "clearHwidsConfirm": "移除所有已註冊的裝置？每台裝置在下次取得訂閱時都需要重新註冊。",
       "password": "密碼",
-      "passwordDesc": "僅 Trojan 與 Shadowsocks 用戶端使用；VLESS、VMess、Hysteria 和 WireGuard 會忽略此項。",
+      "passwordDesc": "Trojan、Shadowsocks、TUIC 與 SOCKS5 用戶端使用；VLESS、VMess、Hysteria 和 WireGuard 會忽略此項。",
+      "socks5Title": "SOCKS5 代理",
+      "socks5Hint": "不在任何訂閱裡。SOCKS5 不加密，請在境外或透過 VPN 使用。",
+      "socks5Exit": "出口 {name}",
       "subId": "訂閱 ID",
       "subIdDesc": "同時作為此使用者的 Telegram 機器人邀請碼：任何人將其傳送給機器人即會綁定到此使用者。請保持足夠長且隨機——過短或容易猜到的 ID 可能被他人搶先綁定。",
       "online": "上線",

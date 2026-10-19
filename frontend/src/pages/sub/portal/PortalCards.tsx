@@ -5,7 +5,8 @@ import { Tag, theme } from 'antd';
 import { SizeFormatter } from '@/utils';
 import { Sparkline } from '@/components/viz';
 import { useLimitsText } from '@/lib/plans/planText';
-import type { TrafficDay } from '@/generated/zod';
+import Socks5ProxyList from '@/components/clients/Socks5Proxies';
+import type { Socks5Proxy, TrafficDay } from '@/generated/zod';
 import type { PortalPlan } from '@/schemas/portal';
 
 export function PortalPlanCard({ plan }: { plan: PortalPlan }) {
@@ -74,6 +75,18 @@ export function PortalUsageCard({ daily }: { daily: TrafficDay[] }) {
         name2={t('pages.index.download')}
         yFormatter={SizeFormatter.sizeFormat}
       />
+    </section>
+  );
+}
+
+export function PortalSocks5Card({ proxies }: { proxies: Socks5Proxy[] }) {
+  const { t } = useTranslation();
+  return (
+    <section className="portal-section">
+      <div className="portal-section-head">
+        <span className="portal-section-title">{t('pages.clients.socks5Title')}</span>
+      </div>
+      <Socks5ProxyList proxies={proxies} />
     </section>
   );
 }

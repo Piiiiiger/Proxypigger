@@ -790,7 +790,8 @@
           "expired": "Expired",
           "suspended": "Suspenso"
         }
-      }
+      },
+      "mixedUsersNote": "Os usuários vinculados a esta entrada entram com o próprio nome de usuário e a senha SOCKS5, com a mesma cobrança, cota, limite de IP e validade do VLESS; as contas abaixo deixam então de funcionar."
     },
     "clients": {
       "tabBasics": "Básico",
@@ -872,7 +873,10 @@
       "hwidDeleted": "Dispositivo removido.",
       "clearHwidsConfirm": "Remover todos os dispositivos registrados? Cada dispositivo precisará se registrar novamente na próxima busca da assinatura.",
       "password": "Senha",
-      "passwordDesc": "Usada apenas pelos clientes Trojan e Shadowsocks; ignorada para VLESS, VMess, Hysteria e WireGuard.",
+      "passwordDesc": "Usada pelos clientes Trojan, Shadowsocks, TUIC e SOCKS5; ignorada para VLESS, VMess, Hysteria e WireGuard.",
+      "socks5Title": "Proxies SOCKS5",
+      "socks5Hint": "Não está em nenhuma assinatura. O SOCKS5 não é criptografado: use-o do exterior ou por uma VPN.",
+      "socks5Exit": "Sai por {name}",
       "subId": "ID da assinatura",
       "subIdDesc": "Também funciona como código de convite deste usuário no bot do Telegram: quem enviá-lo ao bot fica vinculado a este usuário. Mantenha-o longo e aleatório — um ID curto ou fácil de adivinhar pode ser reivindicado por outra pessoa.",
       "online": "Online",

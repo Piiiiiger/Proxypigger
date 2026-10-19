@@ -76,6 +76,21 @@ func TestAccessAuditQueuesWithoutWaitingAndReportsLoss(t *testing.T) {
 	}
 }
 
+// A SOCKS5 relay's hop reaches the exit, which records the same visit under the
+// same login; recording it at the relay too would double every piece of evidence.
+func TestAccessAuditLeavesSocksRelayHopsToTheExit(t *testing.T) {
+	a := &accessAudit{queue: make(chan auditRecord, 2)}
+	m := &xlog.AccessMessage{From: xnet.TCPDestination(xnet.ParseAddress("198.51.100.7"), 5555)}
+	a.offer(abuse.NewEvent(time.Now(), "alice", "example.com", 443, false, "socks-in >> "+abuse.ChainSocksTag(7, "alice")), m)
+	a.offer(abuse.NewEvent(time.Now(), "alice", "example.org", 443, false, "socks-in >> direct"), m)
+	if len(a.queue) != 1 {
+		t.Fatalf("queued %d records, want only the direct visit", len(a.queue))
+	}
+	if row := <-a.queue; row.Destination != "example.org" {
+		t.Fatalf("record = %+v", row)
+	}
+}
+
 func TestAccessAuditInvalidPathDoesNotPreventAgentStartup(t *testing.T) {
 	a, err := New(Config{StateDir: t.TempDir(), AccessAuditLog: "relative.jsonl"}, "test")
 	if err != nil {

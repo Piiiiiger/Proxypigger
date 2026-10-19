@@ -2,6 +2,13 @@
 // connections and traffic only, never their content.
 package abuse
 
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strconv"
+	"strings"
+)
+
 // Rule names, stored with every hit and shown to people.
 const (
 	RuleSpam      = "spam"
@@ -30,6 +37,24 @@ const (
 	TagChainTransitDirect = "chain-transit-direct"
 	TagChainTransitBlock  = "chain-transit-block"
 )
+
+// TagChainSocksPrefix starts the outbound a SOCKS5 relay carries one user on to
+// its chain exit with; the exit judges that traffic under the user's own login.
+const TagChainSocksPrefix = "chain-socks-"
+
+// TagChainSocksBlock drops what a SOCKS5 relay user may not carry on to an exit.
+const TagChainSocksBlock = TagChainSocksPrefix + "block"
+
+// ChainSocksTag names that outbound; a hash keeps any user name safe in a tag.
+func ChainSocksTag(chainID int, email string) string {
+	sum := sha256.Sum256([]byte(email))
+	return TagChainSocksPrefix + strconv.Itoa(chainID) + "-" + hex.EncodeToString(sum[:6])
+}
+
+// IsChainSocksHop reports whether an outbound is such a relay hop.
+func IsChainSocksHop(tag string) bool {
+	return strings.HasPrefix(tag, TagChainSocksPrefix)
+}
 
 // Levels say how far a hit went: a strike is a full hit, a warning the first
 // stage of one, which never costs a strike whatever the rule is set to do.

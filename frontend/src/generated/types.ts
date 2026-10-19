@@ -1681,6 +1681,17 @@ export interface SignupGuard {
   limit: number;
 }
 
+export interface Socks5Proxy {
+  enable: boolean;
+  exit: string;
+  host: string;
+  inboundId: number;
+  password: string;
+  port: number;
+  remark: string;
+  username: string;
+}
+
 export interface SubBalancer {
   createdAt: number;
   enabled: boolean;

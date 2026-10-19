@@ -12,7 +12,7 @@ import { PortalDataSchema, type PortalData } from '@/schemas/portal';
 import SubHeader from '../SubHeader';
 import SubPage from '../SubPage';
 import SubShell, { useSubLanguage } from '../SubShell';
-import { PortalPlanCard, PortalUsageCard } from './PortalCards';
+import { PortalPlanCard, PortalSocks5Card, PortalUsageCard } from './PortalCards';
 import PortalLogin from './PortalLogin';
 import PortalProbe from './PortalProbe';
 import PortalOnlineIps from './PortalOnlineIps';
@@ -201,6 +201,7 @@ export default function PortalApp({ base }: { base: string }) {
         <Alert type="warning" showIcon title={t('subscription.portal.noSubscription')} />
       )}
       {data.plan && <PortalPlanCard plan={data.plan} />}
+      {data.socks5 && data.socks5.length > 0 && <PortalSocks5Card proxies={data.socks5} />}
       <PortalOnlineIps base={base} email={data.email} onSessionEnded={onSessionEnded} />
       <PortalBans base={base} email={data.email} onSessionEnded={onSessionEnded} />
       <PortalUsageCard daily={data.daily} />

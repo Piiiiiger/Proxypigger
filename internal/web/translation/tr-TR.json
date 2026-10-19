@@ -790,7 +790,8 @@
           "expired": "Expired",
           "suspended": "Askıya alındı"
         }
-      }
+      },
+      "mixedUsersNote": "Bu gelen bağlantıya eklenen kullanıcılar kendi kullanıcı adı ve SOCKS5 parolasıyla giriş yapar; ücretlendirme, kota, IP sınırı ve süre VLESS ile aynıdır. Kullanıcı eklenince aşağıdaki hesaplar çalışmaz."
     },
     "clients": {
       "tabBasics": "Temel",
@@ -872,7 +873,10 @@
       "hwidDeleted": "Cihaz kaldırıldı.",
       "clearHwidsConfirm": "Kayıtlı tüm cihazlar kaldırılsın mı? Her cihazın bir sonraki abonelik alımında yeniden kaydolması gerekecek.",
       "password": "Şifre",
-      "passwordDesc": "Yalnızca Trojan ve Shadowsocks istemcileri tarafından kullanılır; VLESS, VMess, Hysteria ve WireGuard için yok sayılır.",
+      "passwordDesc": "Trojan, Shadowsocks, TUIC ve SOCKS5 istemcileri tarafından kullanılır; VLESS, VMess, Hysteria ve WireGuard için yok sayılır.",
+      "socks5Title": "SOCKS5 proxy'leri",
+      "socks5Hint": "Hiçbir aboneliğe dahil değildir. SOCKS5 şifrelenmez: yurt dışından veya bir VPN üzerinden kullanın.",
+      "socks5Exit": "Çıkış: {name}",
       "subId": "Abonelik ID'si",
       "subIdDesc": "Bu kullanıcının Telegram botu davet kodu olarak da kullanılır: bunu bota gönderen kişi bu kullanıcıya bağlanır. Uzun ve rastgele tutun — kısa veya tahmin edilebilir bir kimlik başkası tarafından sahiplenilebilir.",
       "online": "Çevrimiçi",

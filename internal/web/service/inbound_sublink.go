@@ -9,6 +9,7 @@ type SubLinkProvider interface {
 	SubLinksForSubId(host, subId string) ([]string, error)
 	LinksForClient(host string, inbound *model.Inbound, email string) []string
 	LinksForInbounds(host string, inbounds []*model.Inbound) []string
+	Socks5ForClient(host, email string) ([]Socks5Proxy, error)
 }
 
 var registeredSubLinkProvider SubLinkProvider
