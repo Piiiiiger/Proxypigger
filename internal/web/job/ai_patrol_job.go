@@ -1,8 +1,9 @@
 package job
 
 import (
-	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"time"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
 
 type AIPatrolJob struct{}

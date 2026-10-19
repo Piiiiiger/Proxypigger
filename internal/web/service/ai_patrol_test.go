@@ -1,10 +1,11 @@
 package service
 
 import (
-	"github.com/mhsanaei/3x-ui/v3/internal/database"
-	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"testing"
 	"time"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
 func seedAIPatrol(t *testing.T) (int, time.Time, AIPatrolBundle) {
@@ -25,6 +26,7 @@ func seedAIPatrol(t *testing.T) (int, time.Time, AIPatrolBundle) {
 	now := time.Now().UTC().Truncate(time.Second)
 	return n.Id, now, aiBundle(now)
 }
+
 func aiBundle(now time.Time) AIPatrolBundle {
 	var b AIPatrolBundle
 	end := now.Add(-time.Minute)
@@ -47,6 +49,7 @@ func aiBundle(now time.Time) AIPatrolBundle {
 	b.Evidence.Users = []AIPatrolUser{u}
 	return b
 }
+
 func TestAIPatrolFirstNoticeThenIndependentRepeatSuspends24Hours(t *testing.T) {
 	n, now, b := seedAIPatrol(t)
 	s := &AIPatrolService{}
@@ -86,6 +89,7 @@ func TestAIPatrolFirstNoticeThenIndependentRepeatSuspends24Hours(t *testing.T) {
 		t.Fatal("admin cannot lift", err)
 	}
 }
+
 func TestAIPatrolUndeliveredNoticeCannotEscalate(t *testing.T) {
 	n, now, b := seedAIPatrol(t)
 	s := &AIPatrolService{}
@@ -101,6 +105,7 @@ func TestAIPatrolUndeliveredNoticeCannotEscalate(t *testing.T) {
 		t.Fatal("penalized before notice delivery")
 	}
 }
+
 func TestAIPatrolPortalAcknowledgementEnablesEscalation(t *testing.T) {
 	n, now, b := seedAIPatrol(t)
 	s := &AIPatrolService{}
@@ -126,6 +131,7 @@ func TestAIPatrolPortalAcknowledgementEnablesEscalation(t *testing.T) {
 		t.Fatal("portal receipt not honored")
 	}
 }
+
 func TestAIPatrolRejectsWeakStaleIncompleteAndUnattributedFindings(t *testing.T) {
 	cases := map[string]func(*AIPatrolBundle){
 		"medium confidence":    func(b *AIPatrolBundle) { b.Report.Findings[0].Confidence = "medium" },
@@ -153,6 +159,7 @@ func TestAIPatrolRejectsWeakStaleIncompleteAndUnattributedFindings(t *testing.T)
 		})
 	}
 }
+
 func TestAIPatrolPreviewCutoffAndExpiredStrikeWindow(t *testing.T) {
 	n, now, b := seedAIPatrol(t)
 	s := &AIPatrolService{}
@@ -187,6 +194,7 @@ func TestAIPatrolPreviewCutoffAndExpiredStrikeWindow(t *testing.T) {
 		t.Fatal("strike did not expire after 30 days")
 	}
 }
+
 func TestAIPatrolDoesNotDoublePunishRealtimeIncident(t *testing.T) {
 	n, now, b := seedAIPatrol(t)
 	r := model.BanRecord{Email: "alice", Kind: BanKindAbuse, BannedAt: b.Evidence.Coverage.WindowStart.Add(time.Hour).Unix(), ExpiresAt: b.Evidence.Coverage.WindowStart.Add(90 * time.Minute).Unix()}

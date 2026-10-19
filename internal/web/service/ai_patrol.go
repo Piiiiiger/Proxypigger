@@ -90,8 +90,10 @@ type AIPatrolBundle struct {
 	Identities map[string]string `json:"identities"`
 }
 
-var aiPatrolRunID = regexp.MustCompile(`^[0-9]{8}T[0-9]{12}Z$`)
-var aiPatrolMutex sync.Mutex
+var (
+	aiPatrolRunID = regexp.MustCompile(`^[0-9]{8}T[0-9]{12}Z$`)
+	aiPatrolMutex sync.Mutex
+)
 
 type AIPatrolService struct{}
 
@@ -321,6 +323,7 @@ func (s *AIPatrolService) Notices(email string, now time.Time) ([]model.AIPatrol
 	err := database.GetDB().Where("email = ? AND at >= ?", email, now.AddDate(0, 0, -90).Unix()).Order("id DESC").Limit(100).Find(&rows).Error
 	return rows, err
 }
+
 func (s *AIPatrolService) Seen(email string, ids []int, now time.Time) error {
 	if len(ids) > 100 {
 		return errors.New("too many notice ids")
