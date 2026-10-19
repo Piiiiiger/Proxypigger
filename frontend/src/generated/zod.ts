@@ -36,6 +36,23 @@ export type trafficLocalApplyAction = z.infer<typeof trafficLocalApplyActionSche
 export const transportBitsSchema = z.number().int();
 export type transportBits = z.infer<typeof transportBitsSchema>;
 
+export const AIPatrolViolationSchema = z.object({
+  action: z.string(),
+  at: z.number().int(),
+  category: z.string(),
+  eventId: z.number().int(),
+  forgiven: z.boolean(),
+  id: z.number().int(),
+  nodeId: z.number().int(),
+  notifiedAt: z.number().int(),
+  portalSeenAt: z.number().int(),
+  reason: z.string(),
+  runId: z.string(),
+  windowEnd: z.number().int(),
+  windowStart: z.number().int(),
+});
+export type AIPatrolViolation = z.infer<typeof AIPatrolViolationSchema>;
+
 export const AbuseActionsSchema = z.object({
   bt: z.string(),
   crawler: z.string(),
@@ -84,6 +101,7 @@ export const AbuseEventViewSchema = z.object({
 export type AbuseEventView = z.infer<typeof AbuseEventViewSchema>;
 
 export const AbuseHistorySchema = z.object({
+  aiPatrolNotices: z.array(z.lazy(() => AIPatrolViolationSchema)),
   records: z.array(z.lazy(() => BanRecordSchema)),
   status: z.lazy(() => AbuseStatusSchema),
 });

@@ -32,8 +32,16 @@ function record(over: Partial<BanRecord>): BanRecord {
 }
 
 const running = record({ id: 3, strike: 2 });
-const banned: AbuseHistory = { status: { ban: running, strikes: 2, limit: 3 }, records: [running] };
-const clean: AbuseHistory = { status: { ban: null, strikes: 0, limit: 3 }, records: [] };
+const banned: AbuseHistory = {
+  status: { ban: running, strikes: 2, limit: 3 },
+  records: [running],
+  aiPatrolNotices: [],
+};
+const clean: AbuseHistory = {
+  status: { ban: null, strikes: 0, limit: 3 },
+  records: [],
+  aiPatrolNotices: [],
+};
 
 describe('ban history', () => {
   it('says why a running ban happened and how long it has left', () => {

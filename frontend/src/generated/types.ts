@@ -12,6 +12,22 @@ export type staticEgressResolver = string;
 export type trafficLocalApplyAction = number;
 export type transportBits = number;
 
+export interface AIPatrolViolation {
+  action: string;
+  at: number;
+  category: string;
+  eventId: number;
+  forgiven: boolean;
+  id: number;
+  nodeId: number;
+  notifiedAt: number;
+  portalSeenAt: number;
+  reason: string;
+  runId: string;
+  windowEnd: number;
+  windowStart: number;
+}
+
 export interface AbuseActions {
   bt: string;
   crawler: string;
@@ -57,6 +73,7 @@ export interface AbuseEventView {
 }
 
 export interface AbuseHistory {
+  aiPatrolNotices: AIPatrolViolation[];
   records: BanRecord[];
   status: AbuseStatus;
 }

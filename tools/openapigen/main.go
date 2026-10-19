@@ -45,6 +45,7 @@ func run(root, outDir string) error {
 				"ClientIpBan",
 				"AbuseEvent",
 				"BanRecord",
+				"AIPatrolViolation",
 			),
 			AliasAllow: setOf("Protocol"),
 			Overrides: map[string][]walkOverride{

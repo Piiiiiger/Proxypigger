@@ -26,6 +26,71 @@
       }
     },
     "schemas": {
+      "AIPatrolViolation": {
+        "description": "AIPatrolViolation survives report retention, restarts and notification retries.\nIts strikes are independent of the real-time detector's 30-minute penalties.",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "at": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "category": {
+            "type": "string"
+          },
+          "eventId": {
+            "type": "integer"
+          },
+          "forgiven": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "nodeId": {
+            "type": "integer"
+          },
+          "notifiedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "portalSeenAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "windowEnd": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "windowStart": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action",
+          "at",
+          "category",
+          "eventId",
+          "forgiven",
+          "id",
+          "nodeId",
+          "notifiedAt",
+          "portalSeenAt",
+          "reason",
+          "runId",
+          "windowEnd",
+          "windowStart"
+        ],
+        "type": "object"
+      },
       "AbuseActions": {
         "description": "AbuseActions say what each rule's hits do on an enforcing server.",
         "properties": {
@@ -234,6 +299,12 @@
       "AbuseHistory": {
         "description": "AbuseHistory is one account's standing and its bans of the last 90 days.",
         "properties": {
+          "aiPatrolNotices": {
+            "items": {
+              "$ref": "#/components/schemas/AIPatrolViolation"
+            },
+            "type": "array"
+          },
           "records": {
             "items": {
               "$ref": "#/components/schemas/BanRecord"
@@ -245,6 +316,7 @@
           }
         },
         "required": [
+          "aiPatrolNotices",
           "records",
           "status"
         ],
@@ -18406,6 +18478,23 @@
                 "example": {
                   "success": true,
                   "obj": {
+                    "aiPatrolNotices": [
+                      {
+                        "action": "",
+                        "at": 0,
+                        "category": "",
+                        "eventId": 0,
+                        "forgiven": false,
+                        "id": 0,
+                        "nodeId": 0,
+                        "notifiedAt": 0,
+                        "portalSeenAt": 0,
+                        "reason": "",
+                        "runId": "",
+                        "windowEnd": 0,
+                        "windowStart": 0
+                      }
+                    ],
                     "records": [
                       {
                         "bannedAt": 1791172800,
@@ -18475,6 +18564,23 @@
                 "example": {
                   "success": true,
                   "obj": {
+                    "aiPatrolNotices": [
+                      {
+                        "action": "",
+                        "at": 0,
+                        "category": "",
+                        "eventId": 0,
+                        "forgiven": false,
+                        "id": 0,
+                        "nodeId": 0,
+                        "notifiedAt": 0,
+                        "portalSeenAt": 0,
+                        "reason": "",
+                        "runId": "",
+                        "windowEnd": 0,
+                        "windowStart": 0
+                      }
+                    ],
                     "records": [
                       {
                         "bannedAt": 1791172800,
@@ -18544,6 +18650,23 @@
                 "example": {
                   "success": true,
                   "obj": {
+                    "aiPatrolNotices": [
+                      {
+                        "action": "",
+                        "at": 0,
+                        "category": "",
+                        "eventId": 0,
+                        "forgiven": false,
+                        "id": 0,
+                        "nodeId": 0,
+                        "notifiedAt": 0,
+                        "portalSeenAt": 0,
+                        "reason": "",
+                        "runId": "",
+                        "windowEnd": 0,
+                        "windowStart": 0
+                      }
+                    ],
                     "records": [
                       {
                         "bannedAt": 1791172800,
