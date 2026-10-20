@@ -40,7 +40,7 @@ func TestNewDeviceHandshakeForwarderAndIdentity(t *testing.T) {
 		t.Fatalf("generate client keypair: %v", err)
 	}
 
-	const listenPort = 58712 // fixed loopback test port, matches the validated Phase 0 spike approach
+	listenPort := freeHostPort(t)
 	const wantEmail = "test-peer@example.com"
 
 	inst := amneziawg.Instance{
@@ -249,7 +249,7 @@ func TestNewDeviceHeaderProtectionAndContentPaddingRoundTrip(t *testing.T) {
 		t.Fatalf("generate header protection key: %v", err)
 	}
 
-	const listenPort = 58713 // fixed loopback test port, distinct from the handshake test above
+	listenPort := freeHostPort(t)
 	const contentPaddingAddition = "20-40"
 
 	inst := amneziawg.Instance{
@@ -435,7 +435,7 @@ func TestNewDeviceRandomTrailersAndDisableCookiesRoundTrip(t *testing.T) {
 		t.Fatalf("generate client keypair: %v", err)
 	}
 
-	const listenPort = 58721 // fixed loopback test port, distinct from every other test in this package
+	listenPort := freeHostPort(t)
 
 	inst := amneziawg.Instance{
 		Id:            3,
@@ -597,7 +597,7 @@ func TestValidatedObfuscationAlwaysApplies(t *testing.T) {
 		}},
 	}
 
-	for i, tc := range cases {
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			o := base
 			tc.mut(&o)
@@ -605,7 +605,7 @@ func TestValidatedObfuscationAlwaysApplies(t *testing.T) {
 				return // rejected before saving, which is the whole point
 			}
 			inst := amneziawg.Instance{
-				Id: 88, InterfaceName: "awgcontract", ListenPort: 58900 + i,
+				Id: 88, InterfaceName: "awgcontract", ListenPort: freeHostPort(t),
 				PrivateKey: priv, PublicKey: pub,
 				Address: []string{"10.198.0.1/24"}, MTU: 1420,
 				Obfuscation: o,
