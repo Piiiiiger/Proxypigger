@@ -33,11 +33,31 @@
 .plan-card .ant-card-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+}
+
+/* antd's clearfix ::before and ::after would each take a cell of this grid,
+   leaving the first one empty and pushing the last action onto a third row. */
+.plan-card .ant-card-actions::before,
+.plan-card .ant-card-actions::after {
+  content: none;
 }
 
 .plan-card .ant-card-actions > li {
+  display: grid;
+  place-items: center;
   width: auto !important;
-  margin-block: 4px;
+  margin: 0;
+  padding-block: 4px;
+}
+
+/* Dividers between the two columns and the two rows only, none on the card's edge. */
+.plan-card .ant-card-actions > li:nth-child(even) {
+  border-inline-end: none;
+}
+
+.plan-card .ant-card-actions > li:nth-child(n + 3) {
+  border-top: 1px solid var(--ant-color-border-secondary);
 }
 
 .plan-card .ant-card-actions .ant-btn {
