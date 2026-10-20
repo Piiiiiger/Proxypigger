@@ -20,17 +20,11 @@ import {
 } from 'antd';
 import {
   AppstoreOutlined,
-  CalendarOutlined,
-  ClusterOutlined,
   DeleteOutlined,
   EditOutlined,
-  FileTextOutlined,
-  InfoCircleOutlined,
   KeyOutlined,
   PlusOutlined,
-  SafetyOutlined,
   StarFilled,
-  TeamOutlined,
   UnorderedListOutlined,
   UserAddOutlined,
 } from '@ant-design/icons';
@@ -46,6 +40,7 @@ import type { PlanFormValues } from '@/schemas/plan';
 import AssignPlanModal from './AssignPlanModal';
 import PlanFormModal from './PlanFormModal';
 import ActivationCodesModal from './ActivationCodesModal';
+import PlanCard from './PlanCard';
 import { termsText, useInboundChoices } from './planText';
 import { usePlanNodeOptions } from '@/api/queries/usePlanNodeOptions';
 import './PlansPage.css';
@@ -67,26 +62,6 @@ function writeView(view: PlansView) {
   } catch {
     /* a blocked store only forgets the choice */
   }
-}
-
-function PlanRow({
-  icon,
-  label,
-  children,
-}: {
-  icon: ReactNode;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="plan-row">
-      <span className="plan-row-label">
-        {icon}
-        {label}
-      </span>
-      <span className="plan-row-value">{children}</span>
-    </div>
-  );
 }
 
 export default function PlansPage() {
@@ -243,41 +218,19 @@ export default function PlansPage() {
 
   const grid = (
     <div className="plan-grid">
-      {plans.map((plan) => {
-        return (
-          <Card
-            key={plan.id}
-            className="plan-card"
-            title={
-              <span className="plan-card-title">
-                <Typography.Text ellipsis>{plan.name}</Typography.Text>
-                {plan.remark && (
-                  <Tooltip title={plan.remark}>
-                    <InfoCircleOutlined className="plan-card-remark-icon" />
-                  </Tooltip>
-                )}
-              </span>
-            }
-            actions={actionsOf(plan)}
-          >
-            <PlanRow icon={<FileTextOutlined />} label={t('pages.plans.template')}>
-              {templateOf(plan)}
-            </PlanRow>
-            <PlanRow icon={<SafetyOutlined />} label={t('pages.clients.limitIp')}>
-              {ipLimitOf(plan)}
-            </PlanRow>
-            <PlanRow icon={<CalendarOutlined />} label="计费周期">
-              {termsText(plan.termMonths)}
-            </PlanRow>
-            <PlanRow icon={<ClusterOutlined />} label={t('pages.plans.servers')}>
-              {nodesOf(plan)}
-            </PlanRow>
-            <PlanRow icon={<TeamOutlined />} label={t('pages.plans.people')}>
-              {membersOf(plan)}
-            </PlanRow>
-          </Card>
-        );
-      })}
+      {plans.map((plan) => (
+        <PlanCard
+          key={plan.id}
+          name={plan.name}
+          remark={plan.remark}
+          template={templateOf(plan)}
+          ipLimit={ipLimitOf(plan)}
+          terms={termsText(plan.termMonths)}
+          nodes={nodesOf(plan)}
+          members={membersOf(plan)}
+          actions={actionsOf(plan)}
+        />
+      ))}
     </div>
   );
 
