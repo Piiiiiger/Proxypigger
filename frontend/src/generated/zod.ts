@@ -143,7 +143,9 @@ export const ActivationCodeSchema = z.object({
   code: z.string(),
   createdAt: z.number().int(),
   days: z.number().int(),
+  expiresAt: z.number().int(),
   id: z.number().int(),
+  months: z.number().int(),
   note: z.string(),
   planId: z.number().int(),
   resetDay: z.number().int(),
@@ -156,6 +158,7 @@ export type ActivationCode = z.infer<typeof ActivationCodeSchema>;
 export const ActivationCodeInputSchema = z.object({
   count: z.number().int(),
   days: z.number().int(),
+  months: z.number().int(),
   note: z.string(),
   planId: z.number().int(),
   resetDay: z.number().int(),
@@ -1418,7 +1421,7 @@ export const PlanInputSchema = z.object({
   proxyGroups: z.array(z.lazy(() => PlanProxyGroupSchema)).optional(),
   remark: z.string(),
   templateId: z.number().int(),
-  termDays: z.array(z.number().int()).optional(),
+  termMonths: z.array(z.number().int()).optional(),
 });
 export type PlanInput = z.infer<typeof PlanInputSchema>;
 
@@ -1442,7 +1445,7 @@ export const PlanSummarySchema = z.object({
   remark: z.string(),
   sortIndex: z.number().int(),
   templateId: z.number().int(),
-  termDays: z.array(z.number().int()).optional(),
+  termMonths: z.array(z.number().int()).optional(),
   updatedAt: z.number().int(),
 });
 export type PlanSummary = z.infer<typeof PlanSummarySchema>;

@@ -248,8 +248,10 @@ export const EXAMPLES: Record<string, unknown> = {
   "ActivationCode": {
     "code": "7KQ3-X9MZ-2F4H-RT8W",
     "createdAt": 1735689600000,
-    "days": 30,
+    "days": 0,
+    "expiresAt": 1738368000000,
     "id": 1,
+    "months": 1,
     "note": "for alice",
     "planId": 2,
     "resetDay": 1,
@@ -259,7 +261,8 @@ export const EXAMPLES: Record<string, unknown> = {
   },
   "ActivationCodeInput": {
     "count": 5,
-    "days": 30,
+    "days": 0,
+    "months": 1,
     "note": "March group",
     "planId": 2,
     "resetDay": 1,
@@ -1750,9 +1753,9 @@ export const EXAMPLES: Record<string, unknown> = {
     ],
     "remark": "Hong Kong and Singapore",
     "templateId": 1,
-    "termDays": [
-      90,
-      365
+    "termMonths": [
+      3,
+      12
     ]
   },
   "PlanProxyGroup": {
@@ -1796,9 +1799,9 @@ export const EXAMPLES: Record<string, unknown> = {
     "remark": "Hong Kong and Singapore",
     "sortIndex": 0,
     "templateId": 1,
-    "termDays": [
-      90,
-      365
+    "termMonths": [
+      3,
+      12
     ],
     "updatedAt": 1735689600000
   },

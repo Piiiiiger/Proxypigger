@@ -28,7 +28,7 @@ function initialState(plan: PlanSummary | null): PlanFormState {
       inboundIds: [...group.inboundIds],
       nodeKeys: group.nodeKeys ? [...group.nodeKeys] : undefined,
     })),
-    termDays: [...(plan?.termDays ?? [])],
+    termMonths: [...(plan?.termMonths ?? [])],
     reapplyLimits: false,
   };
 }
@@ -175,11 +175,11 @@ export default function PlanFormModal({ open, plan, onClose, onConfirm }: PlanFo
 
           <FormField
             label="计费周期"
-            name="termDays"
+            name="termMonths"
             extra="勾选后，续期和激活码只能用这些周期；都不勾表示不限。"
           >
             <Checkbox.Group
-              options={PLAN_TERMS.map((days) => ({ value: days, label: termLabel(days) }))}
+              options={PLAN_TERMS.map((months) => ({ value: months, label: termLabel(months) }))}
             />
           </FormField>
 

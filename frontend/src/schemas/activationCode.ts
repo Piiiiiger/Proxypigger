@@ -6,7 +6,9 @@ export const ActivationCodeFormSchema = z.object({
     .number()
     .min(0)
     .max(Number.MAX_SAFE_INTEGER / 1024 ** 3),
-  days: z.number().int().min(0).max(36500),
+  // How long a code lasts, in calendar months or plain days; 0 never expires.
+  validity: z.number().int().min(0).max(36500),
+  unit: z.enum(['months', 'days']),
   resetDay: z.number().int().min(0).max(31),
   note: z.string().max(256),
 });

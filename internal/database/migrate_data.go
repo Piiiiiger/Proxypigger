@@ -348,8 +348,8 @@ func tableWithIdColumn(db *gorm.DB, m any) (string, bool) {
 // PrepareSQLiteForMigration rejects SQLite files that are not a panel database
 // before the caller causes any downtime, then AutoMigrates the panel schema
 // onto the file so backups from older versions gain the newer tables and
-// columns the row copy reads. Data-level upgrades are not needed here: they
-// run dialect-agnostically on the destination via InitDB after the import.
+// columns the row copy reads. Data-level upgrades run dialect-agnostically on the
+// destination via InitDB after the import, except those reading retired columns.
 func PrepareSQLiteForMigration(dbPath string) error {
 	gdb, err := gorm.Open(sqlite.Open(dbPath+"?_busy_timeout=10000"), &gorm.Config{Logger: logger.Discard})
 	if err != nil {
@@ -366,10 +366,18 @@ func PrepareSQLiteForMigration(dbPath string) error {
 			return fmt.Errorf("not a 3x-ui panel database: required table %q is missing", table)
 		}
 	}
+	// The copy carries only today's columns, so the upgrades that read retired ones
+	// (day terms, day codes) run here, around the schema upgrade, as InitDB runs them.
+	if err := moveMonthlyCodesToMonths(gdb); err != nil {
+		return fmt.Errorf("move day codes to months: %w", err)
+	}
 	for _, m := range migrationModels() {
 		if err := gdb.AutoMigrate(m); err != nil && !isIgnorableDuplicateColumnErr(gdb, err, m) {
 			return fmt.Errorf("upgrade panel schema for %T: %w", m, err)
 		}
+	}
+	if err := movePlanTermsToMonths(gdb); err != nil {
+		return fmt.Errorf("move plan terms to months: %w", err)
 	}
 	return nil
 }

@@ -20,12 +20,14 @@ _openapi:
       url: '#list-activation-codes-for-a-plan-newest-first-plan-id-0-lists-every-code'
     - depth: 2
       title: Create 1 to 200 single-use activation codes for a plan with nodes. Each
-        grants the quota in bytes, validity in days counted from creation
-        (including unused time), and monthly reset day. Expired codes cannot be
-        redeemed; renewal adds only their remaining validity. Zero means
-        unlimited quota, no expiry or no reset respectively. A plan with
-        termDays only takes days that are one of its terms.
-      url: '#create-1-to-200-single-use-activation-codes-for-a-plan-with-nodes-each-grants-the-quota-in-bytes-validity-in-days-counted-from-creation-including-unused-time-and-monthly-reset-day-expired-codes-cannot-be-redeemed-renewal-adds-only-their-remaining-validity-zero-means-unlimited-quota-no-expiry-or-no-reset-respectively-a-plan-with-termdays-only-takes-days-that-are-one-of-its-terms'
+        grants the quota in bytes, a validity of calendar months or of days
+        counted from creation (including unused time), and monthly reset day.
+        Expired codes cannot be redeemed; a renewal adds the months to the same
+        date (or the days), worth the share of its validity left when the code
+        is used. Zero quota means unlimited, months and days both 0 never
+        expire, reset day 0 never resets. A plan with termMonths only takes one
+        of its months.
+      url: '#create-1-to-200-single-use-activation-codes-for-a-plan-with-nodes-each-grants-the-quota-in-bytes-a-validity-of-calendar-months-or-of-days-counted-from-creation-including-unused-time-and-monthly-reset-day-expired-codes-cannot-be-redeemed-a-renewal-adds-the-months-to-the-same-date-or-the-days-worth-the-share-of-its-validity-left-when-the-code-is-used-zero-quota-means-unlimited-months-and-days-both-0-never-expire-reset-day-0-never-resets-a-plan-with-termmonths-only-takes-one-of-its-months'
     - depth: 2
       title: Revoke an unused code or delete a used code from the history. A used code
         never becomes reusable.
@@ -36,17 +38,17 @@ _openapi:
     - depth: 2
       title: Create a plan. Inbound ids must exist. templateId names the rule template
         members' Clash subscriptions use; 0 leaves them on the default template.
-        limitIp 0 means no IP limit. termDays, 1 to 36500 each, are the only
-        terms the plan is sold and renewed by (renewals and activation codes);
-        none allows any.
-      url: '#create-a-plan-inbound-ids-must-exist-templateid-names-the-rule-template-members-clash-subscriptions-use-0-leaves-them-on-the-default-template-limitip-0-means-no-ip-limit-termdays-1-to-36500-each-are-the-only-terms-the-plan-is-sold-and-renewed-by-renewals-and-activation-codes-none-allows-any'
+        limitIp 0 means no IP limit. termMonths, 1 to 1200 calendar months each,
+        are the only terms the plan is sold and renewed by (renewals and
+        activation codes); none allows any.
+      url: '#create-a-plan-inbound-ids-must-exist-templateid-names-the-rule-template-members-clash-subscriptions-use-0-leaves-them-on-the-default-template-limitip-0-means-no-ip-limit-termmonths-1-to-1200-calendar-months-each-are-the-only-terms-the-plan-is-sold-and-renewed-by-renewals-and-activation-codes-none-allows-any'
     - depth: 2
       title: Replace a plan. Every client on the plan is attached to the inbounds the
         plan gained and detached from those it lost; their other inbounds stay.
         With applyToMembers, the plan IP limit is also re-stamped onto them;
-        their quota, expiry and usage are left alone. termDays replaces the
+        their quota, expiry and usage are left alone. termMonths replaces the
         terms of the plan; leaving it out allows any.
-      url: '#replace-a-plan-every-client-on-the-plan-is-attached-to-the-inbounds-the-plan-gained-and-detached-from-those-it-lost-their-other-inbounds-stay-with-applytomembers-the-plan-ip-limit-is-also-re-stamped-onto-them-their-quota-expiry-and-usage-are-left-alone-termdays-replaces-the-terms-of-the-plan-leaving-it-out-allows-any'
+      url: '#replace-a-plan-every-client-on-the-plan-is-attached-to-the-inbounds-the-plan-gained-and-detached-from-those-it-lost-their-other-inbounds-stay-with-applytomembers-the-plan-ip-limit-is-also-re-stamped-onto-them-their-quota-expiry-and-usage-are-left-alone-termmonths-replaces-the-terms-of-the-plan-leaving-it-out-allows-any'
     - depth: 2
       title: Delete a plan. Refused while any client is on it — move or unassign those
         clients first.
@@ -68,12 +70,14 @@ _openapi:
           code.
         id: list-activation-codes-for-a-plan-newest-first-plan-id-0-lists-every-code
       - content: Create 1 to 200 single-use activation codes for a plan with nodes. Each
-          grants the quota in bytes, validity in days counted from creation
-          (including unused time), and monthly reset day. Expired codes cannot
-          be redeemed; renewal adds only their remaining validity. Zero means
-          unlimited quota, no expiry or no reset respectively. A plan with
-          termDays only takes days that are one of its terms.
-        id: create-1-to-200-single-use-activation-codes-for-a-plan-with-nodes-each-grants-the-quota-in-bytes-validity-in-days-counted-from-creation-including-unused-time-and-monthly-reset-day-expired-codes-cannot-be-redeemed-renewal-adds-only-their-remaining-validity-zero-means-unlimited-quota-no-expiry-or-no-reset-respectively-a-plan-with-termdays-only-takes-days-that-are-one-of-its-terms
+          grants the quota in bytes, a validity of calendar months or of days
+          counted from creation (including unused time), and monthly reset day.
+          Expired codes cannot be redeemed; a renewal adds the months to the
+          same date (or the days), worth the share of its validity left when the
+          code is used. Zero quota means unlimited, months and days both 0 never
+          expire, reset day 0 never resets. A plan with termMonths only takes
+          one of its months.
+        id: create-1-to-200-single-use-activation-codes-for-a-plan-with-nodes-each-grants-the-quota-in-bytes-a-validity-of-calendar-months-or-of-days-counted-from-creation-including-unused-time-and-monthly-reset-day-expired-codes-cannot-be-redeemed-a-renewal-adds-the-months-to-the-same-date-or-the-days-worth-the-share-of-its-validity-left-when-the-code-is-used-zero-quota-means-unlimited-months-and-days-both-0-never-expire-reset-day-0-never-resets-a-plan-with-termmonths-only-takes-one-of-its-months
       - content: Revoke an unused code or delete a used code from the history. A used
           code never becomes reusable.
         id: revoke-an-unused-code-or-delete-a-used-code-from-the-history-a-used-code-never-becomes-reusable
@@ -82,16 +86,16 @@ _openapi:
         id: list-every-plan-with-the-inbounds-it-grants-and-how-many-clients-use-it
       - content: Create a plan. Inbound ids must exist. templateId names the rule
           template members' Clash subscriptions use; 0 leaves them on the
-          default template. limitIp 0 means no IP limit. termDays, 1 to 36500
-          each, are the only terms the plan is sold and renewed by (renewals and
-          activation codes); none allows any.
-        id: create-a-plan-inbound-ids-must-exist-templateid-names-the-rule-template-members-clash-subscriptions-use-0-leaves-them-on-the-default-template-limitip-0-means-no-ip-limit-termdays-1-to-36500-each-are-the-only-terms-the-plan-is-sold-and-renewed-by-renewals-and-activation-codes-none-allows-any
+          default template. limitIp 0 means no IP limit. termMonths, 1 to 1200
+          calendar months each, are the only terms the plan is sold and renewed
+          by (renewals and activation codes); none allows any.
+        id: create-a-plan-inbound-ids-must-exist-templateid-names-the-rule-template-members-clash-subscriptions-use-0-leaves-them-on-the-default-template-limitip-0-means-no-ip-limit-termmonths-1-to-1200-calendar-months-each-are-the-only-terms-the-plan-is-sold-and-renewed-by-renewals-and-activation-codes-none-allows-any
       - content: Replace a plan. Every client on the plan is attached to the inbounds
           the plan gained and detached from those it lost; their other inbounds
           stay. With applyToMembers, the plan IP limit is also re-stamped onto
-          them; their quota, expiry and usage are left alone. termDays replaces
-          the terms of the plan; leaving it out allows any.
-        id: replace-a-plan-every-client-on-the-plan-is-attached-to-the-inbounds-the-plan-gained-and-detached-from-those-it-lost-their-other-inbounds-stay-with-applytomembers-the-plan-ip-limit-is-also-re-stamped-onto-them-their-quota-expiry-and-usage-are-left-alone-termdays-replaces-the-terms-of-the-plan-leaving-it-out-allows-any
+          them; their quota, expiry and usage are left alone. termMonths
+          replaces the terms of the plan; leaving it out allows any.
+        id: replace-a-plan-every-client-on-the-plan-is-attached-to-the-inbounds-the-plan-gained-and-detached-from-those-it-lost-their-other-inbounds-stay-with-applytomembers-the-plan-ip-limit-is-also-re-stamped-onto-them-their-quota-expiry-and-usage-are-left-alone-termmonths-replaces-the-terms-of-the-plan-leaving-it-out-allows-any
       - content: Delete a plan. Refused while any client is on it — move or unassign
           those clients first.
         id: delete-a-plan-refused-while-any-client-is-on-it--move-or-unassign-those-clients-first

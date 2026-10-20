@@ -1,29 +1,27 @@
 package service
 
 import (
-	"math"
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
-	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
 
-// Renew gives each user days more from the later of now and their expiry: a user
+// Renew gives each user the term from the later of now and their expiry: a user
 // without an expiry keeps none, one not yet started gets a longer first period.
-func (s *ClientService) Renew(inboundSvc *InboundService, emails []string, days int, resetUsage bool) (bool, error) {
-	if _, err := RenewedExpiry(0, days, time.Now()); err != nil {
+func (s *ClientService) Renew(inboundSvc *InboundService, emails []string, term RenewalTerm, resetUsage bool) (bool, error) {
+	if err := term.check(); err != nil {
 		return false, err
 	}
 	for _, email := range emails {
-		if err := s.checkRenewalTerm(email, days); err != nil {
+		if err := s.checkRenewalTerm(email, term); err != nil {
 			return false, err
 		}
 	}
 	needRestart := false
 	for _, email := range emails {
-		nr, err := s.renewOne(inboundSvc, email, days, resetUsage)
+		nr, err := s.renewOne(inboundSvc, email, term, resetUsage)
 		needRestart = needRestart || nr
 		if err != nil {
 			return needRestart, err
@@ -32,33 +30,7 @@ func (s *ClientService) Renew(inboundSvc *InboundService, emails []string, days 
 	return needRestart, nil
 }
 
-// RenewedExpiry is the expiry a renewal of days leaves, so a preview shows exactly
-// what Renew will write.
-func RenewedExpiry(expiry int64, days int, now time.Time) (int64, error) {
-	if days < 1 {
-		return 0, common.NewError("a renewal adds at least one day")
-	}
-	if int64(days) > math.MaxInt64/planDayMillis {
-		return 0, common.NewError("the renewal exceeds the supported expiry range")
-	}
-	add := int64(days) * planDayMillis
-	switch {
-	case expiry > 0:
-		base := max(expiry, now.UnixMilli())
-		if base > math.MaxInt64-add {
-			return 0, common.NewError("the renewal exceeds the supported expiry range")
-		}
-		return base + add, nil
-	case expiry < 0:
-		if expiry < math.MinInt64+add {
-			return 0, common.NewError("the renewal exceeds the supported expiry range")
-		}
-		return expiry - add, nil
-	}
-	return 0, nil
-}
-
-func (s *ClientService) renewOne(inboundSvc *InboundService, email string, days int, resetUsage bool) (bool, error) {
+func (s *ClientService) renewOne(inboundSvc *InboundService, email string, term RenewalTerm, resetUsage bool) (bool, error) {
 	rec, err := s.GetRecordByEmail(nil, email)
 	if err != nil {
 		return false, err
@@ -70,12 +42,18 @@ func (s *ClientService) renewOne(inboundSvc *InboundService, email string, days 
 		}
 	}
 	client := rec.ToClient()
-	if client.ExpiryTime, err = RenewedExpiry(rec.ExpiryTime, days, time.Now()); err != nil {
+	var day int
+	if client.ExpiryTime, day, err = RenewedExpiry(rec.ExpiryTime, rec.RenewDay, term, time.Now()); err != nil {
 		return false, err
 	}
 	needRestart, err := s.Update(inboundSvc, rec.Id, *client, rec.LimitHwid)
 	if err != nil {
 		return needRestart, err
+	}
+	if day != rec.RenewDay {
+		if err := database.GetDB().Model(&model.ClientRecord{}).Where("id = ?", rec.Id).UpdateColumn("renew_day", day).Error; err != nil {
+			return needRestart, err
+		}
 	}
 	if resetUsage {
 		nr, err := s.ResetTrafficByEmail(inboundSvc, email)
@@ -102,9 +80,9 @@ func depletedNow(email string) (bool, error) {
 	return found > 0, err
 }
 
-// checkRenewalTerm refuses days that are not one of the terms the user's plan is
-// sold by, before any user of the renewal changes.
-func (s *ClientService) checkRenewalTerm(email string, days int) error {
+// checkRenewalTerm refuses a term that is not one the user's plan is sold by,
+// before any user of the renewal changes.
+func (s *ClientService) checkRenewalTerm(email string, term RenewalTerm) error {
 	rec, err := s.GetRecordByEmail(nil, email)
 	if err != nil || rec.PlanId == 0 {
 		return err
@@ -113,5 +91,5 @@ func (s *ClientService) checkRenewalTerm(email string, days int) error {
 	if err := database.GetDB().First(&plan, rec.PlanId).Error; err != nil {
 		return err
 	}
-	return checkPlanTerm(&plan, days, email+" is on plan %q, which renews by %s days only")
+	return checkPlanTerm(&plan, term, email+" is on plan %q, which renews by %s months only")
 }

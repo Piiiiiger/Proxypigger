@@ -30,7 +30,7 @@ const plan = (
 
 const PLANS = [
   plan(1, 'Starter 125G', 5, 1, [7, 8]),
-  { ...plan(2, 'Duo 150G', 0, 4, [7]), termDays: [90, 365] },
+  { ...plan(2, 'Duo 150G', 0, 4, [7]), termMonths: [3, 12] },
 ];
 const TEMPLATES = [
   {

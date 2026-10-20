@@ -38,8 +38,9 @@ type PlanInput struct {
 	InboundIds  []int            `json:"inboundIds" example:"[1,2]"`
 	ProxyGroups []PlanProxyGroup `json:"proxyGroups,omitempty"`
 	NodeKeys    []string         `json:"nodeKeys,omitempty"`
-	// TermDays are the only terms the plan is sold and renewed by; none allows any.
-	TermDays []int `json:"termDays,omitempty" example:"[90,365]"`
+	// TermMonths are the only terms in calendar months the plan is sold and renewed
+	// by; none allows any.
+	TermMonths []int `json:"termMonths,omitempty" example:"[3,12]"`
 }
 
 // PlanSummary is a plan with the inbounds it grants and how many clients use it.
@@ -50,7 +51,7 @@ type PlanSummary struct {
 	ProxyGroupNames []string         `json:"proxyGroupNames,omitempty"`
 	MemberCount     int              `json:"memberCount" example:"4"`
 	NodeKeys        []string         `json:"nodeKeys,omitempty"`
-	TermDays        []int            `json:"termDays,omitempty" example:"[90,365]"`
+	TermMonths      []int            `json:"termMonths,omitempty" example:"[3,12]"`
 }
 
 const planDayMillis = int64(24 * time.Hour / time.Millisecond)
@@ -87,7 +88,7 @@ func (s *PlanService) List() ([]PlanSummary, error) {
 			InboundIds:      ids,
 			ProxyGroups:     groups,
 			NodeKeys:        nodeKeys,
-			TermDays:        PlanTermDays(&p),
+			TermMonths:      PlanTermMonths(&p),
 			ProxyGroupNames: planTemplateGroupNames(db, p.TemplateId),
 			MemberCount:     int(members),
 		})
@@ -427,12 +428,12 @@ func validatePlanInput(tx *gorm.DB, selfId int, in *PlanInput) error {
 	if in.LimitIP < 0 {
 		return common.NewError("the IP limit cannot be negative")
 	}
-	for _, days := range in.TermDays {
-		if days < 1 || days > activationCodeMaxDays {
-			return common.NewErrorf("a term is 1 to %d days", activationCodeMaxDays)
+	for _, months := range in.TermMonths {
+		if months < 1 || months > maxTermMonths {
+			return common.NewErrorf("a term is 1 to %d months", maxTermMonths)
 		}
 	}
-	in.TermDays = uniqueSortedIds(in.TermDays)
+	in.TermMonths = uniqueSortedIds(in.TermMonths)
 	if in.TemplateId < 0 {
 		in.TemplateId = 0
 	}
@@ -474,26 +475,27 @@ func applyPlanInput(plan *model.Plan, in PlanInput) {
 		encoded, _ := json.Marshal(in.NodeKeys)
 		plan.NodeKeys = string(encoded)
 	}
-	plan.TermDays = ""
-	if len(in.TermDays) > 0 {
-		encoded, _ := json.Marshal(in.TermDays)
-		plan.TermDays = string(encoded)
+	plan.TermMonths = ""
+	if len(in.TermMonths) > 0 {
+		encoded, _ := json.Marshal(in.TermMonths)
+		plan.TermMonths = string(encoded)
 	}
 }
 
-// PlanTermDays are the only terms a plan is sold and renewed by; none allows any.
-func PlanTermDays(plan *model.Plan) []int {
-	var days []int
-	if plan == nil || plan.TermDays == "" || json.Unmarshal([]byte(plan.TermDays), &days) != nil {
+// PlanTermMonths are the only terms in months a plan is sold and renewed by; none
+// allows any.
+func PlanTermMonths(plan *model.Plan) []int {
+	var months []int
+	if plan == nil || plan.TermMonths == "" || json.Unmarshal([]byte(plan.TermMonths), &months) != nil {
 		return nil
 	}
-	return days
+	return months
 }
 
-// checkPlanTerm refuses days that are not one of the plan's terms.
-func checkPlanTerm(plan *model.Plan, days int, refusal string) error {
-	terms := PlanTermDays(plan)
-	if len(terms) == 0 || slices.Contains(terms, days) {
+// checkPlanTerm refuses a term that is not one of the plan's months.
+func checkPlanTerm(plan *model.Plan, term RenewalTerm, refusal string) error {
+	terms := PlanTermMonths(plan)
+	if len(terms) == 0 || (term.Days == 0 && slices.Contains(terms, term.Months)) {
 		return nil
 	}
 	list := make([]string, len(terms))

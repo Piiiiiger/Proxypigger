@@ -12,20 +12,20 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
 
-// A renewal from the card adds what its preview promised, clears the usage the
-// box is ticked for, and runs once when the confirm button is pressed twice.
+// A renewal from the card adds what its preview promised, a calendar month to the
+// same date, clears the usage the box is ticked for, and runs once when pressed twice.
 func TestAdminRenewsFromTheCardAsPreviewedAndOnlyOnce(t *testing.T) {
 	tb, rec := newPiggerBot(t)
 	ib := seedVlessInbound(t, "a")
-	expiry := time.Now().Add(5 * 24 * time.Hour).UnixMilli()
+	expiry := time.Date(2035, time.January, 15, 10, 0, 0, 0, accountLocation).UnixMilli()
 	alice := seedClient(t, "alice", []int{ib}, func(c *model.Client) { c.ExpiryTime = expiry; c.TotalGB = 100 << 30 })
 	setUsage(t, "alice", 3<<30, 9<<30)
 
 	tb.tap(adminTgID, fmt.Sprintf("pg:a:c:%d", alice.Id))
 	tb.tap(adminTgID, rec.last(t).dataFor(t, "续期"))
-	tb.tap(adminTgID, rec.last(t).dataFor(t, "+30 天"))
+	tb.tap(adminTgID, rec.last(t).dataFor(t, "+1 个月"))
 	confirm := rec.last(t)
-	want := expiry + 30*dayMillis
+	want := time.Date(2035, time.February, 15, 10, 0, 0, 0, accountLocation).UnixMilli()
 	if !strings.Contains(confirm.Text, formatClock(want)) {
 		t.Errorf("the preview %q does not promise %s", confirm.Text, formatClock(want))
 	}
@@ -192,7 +192,7 @@ func TestRenewMenuOffersOnlyThePlansTerms(t *testing.T) {
 	tb, rec := newPiggerBot(t)
 	ib := seedVlessInbound(t, "a")
 	alice := seedClient(t, "alice", []int{ib}, func(c *model.Client) { c.ExpiryTime = time.Now().Add(5 * 24 * time.Hour).UnixMilli() })
-	plan, err := (&service.PlanService{}).Create(service.PlanInput{Name: "SG", InboundIds: []int{ib}, TermDays: []int{90, 365}})
+	plan, err := (&service.PlanService{}).Create(service.PlanInput{Name: "SG", InboundIds: []int{ib}, TermMonths: []int{3, 12}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,14 +202,30 @@ func TestRenewMenuOffersOnlyThePlansTerms(t *testing.T) {
 
 	tb.tap(adminTgID, fmt.Sprintf("pg:a:r:%d:0", alice.Id))
 	menu := rec.last(t)
-	for _, want := range []string{"+90 天", "+365 天"} {
+	for _, want := range []string{"+3 个月", "+1 年"} {
 		if !menu.hasButton(want) {
 			t.Errorf("the menu lacks %q: %v", want, menu.Labels)
 		}
 	}
-	for _, other := range []string{"+7 天", "+30 天", "+180 天"} {
+	for _, other := range []string{"+7 天", "+1 个月", "+6 个月"} {
 		if menu.hasButton(other) {
 			t.Errorf("the menu offers %q, which the plan is not sold by", other)
 		}
+	}
+}
+
+// A renew button sent before terms carried plain days; tapped now it offers the
+// menu again instead of renewing by days.
+func TestAnOldRenewButtonReopensTheMenu(t *testing.T) {
+	tb, rec := newPiggerBot(t)
+	ib := seedVlessInbound(t, "a")
+	expiry := time.Date(2035, time.January, 15, 10, 0, 0, 0, accountLocation).UnixMilli()
+	alice := seedClient(t, "alice", []int{ib}, func(c *model.Client) { c.ExpiryTime = expiry })
+	tb.tap(adminTgID, fmt.Sprintf("pg:a:rc:%d:30:0", alice.Id))
+	if menu := rec.last(t); !menu.hasButton("+1 个月") || strings.Contains(menu.Text, "确认") {
+		t.Errorf("an old button gave %q %v, want the renew menu", menu.Text, menu.Labels)
+	}
+	if got := clientRecord(t, "alice").ExpiryTime; got != expiry {
+		t.Errorf("expiry moved to %s", formatClock(got))
 	}
 }

@@ -137,6 +137,9 @@ func initModels() error {
 	if err := migrateInboundExcludeFromSubColumn(); err != nil {
 		return err
 	}
+	if err := moveMonthlyCodesToMonths(db); err != nil {
+		return err
+	}
 	models := allModels()
 	for _, mdl := range models {
 		if IsPostgres() && postgresModelSettled(mdl) {
@@ -233,6 +236,9 @@ func initModels() error {
 		return err
 	}
 	if err := ensureAIRuleSets(); err != nil {
+		return err
+	}
+	if err := movePlanTermsToMonths(db); err != nil {
 		return err
 	}
 	if IsPostgres() {
@@ -561,6 +567,78 @@ func movePlanRulesIntoTemplates() error {
 			return err
 		}
 		return tx.Exec("ALTER TABLE plans DROP COLUMN clash_rules").Error
+	})
+}
+
+// movePlanTermsToMonths turns the day terms plans were sold by into the calendar
+// months they stood for, so a month renews to the same date, and drops the days.
+func movePlanTermsToMonths(tx *gorm.DB) error {
+	if !tx.Migrator().HasColumn(&model.Plan{}, "term_days") {
+		return nil
+	}
+	var rows []struct {
+		Id       int
+		TermDays string
+	}
+	if err := tx.Table("plans").Select("id, term_days").Find(&rows).Error; err != nil {
+		return err
+	}
+	for _, row := range rows {
+		var days []int
+		if strings.TrimSpace(row.TermDays) == "" || json.Unmarshal([]byte(row.TermDays), &days) != nil {
+			continue
+		}
+		encoded := ""
+		if months := monthsOfDays(days); len(months) > 0 {
+			raw, _ := json.Marshal(months)
+			encoded = string(raw)
+		} else {
+			log.Printf("plan %d was sold by %v days, none a whole month: it now renews by any term", row.Id, days)
+		}
+		if err := tx.Table("plans").Where("id = ?", row.Id).Update("term_months", encoded).Error; err != nil {
+			return err
+		}
+	}
+	return tx.Exec("ALTER TABLE plans DROP COLUMN term_days").Error
+}
+
+// monthsOfDays reads day terms as months: whole years and thirty-day months, each
+// once, shortest first; a term of neither has no month.
+func monthsOfDays(days []int) []int {
+	var months []int
+	for _, d := range days {
+		m := 0
+		switch {
+		case d > 0 && d%365 == 0:
+			m = d / 365 * 12
+		case d > 0 && d%30 == 0:
+			m = d / 30
+		}
+		if m > 0 && !slices.Contains(months, m) {
+			months = append(months, m)
+		}
+	}
+	slices.Sort(months)
+	return months
+}
+
+// moveMonthlyCodesToMonths adds the codes' months column and, in the same
+// transaction, makes unused 30/90/180/365-day codes 1/3/6/12-month ones, once.
+func moveMonthlyCodesToMonths(tx *gorm.DB) error {
+	if !tx.Migrator().HasTable(&model.ActivationCode{}) || tx.Migrator().HasColumn(&model.ActivationCode{}, "months") {
+		return nil
+	}
+	return tx.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Migrator().AddColumn(&model.ActivationCode{}, "Months"); err != nil {
+			return err
+		}
+		for days, months := range map[int]int{30: 1, 90: 3, 180: 6, 365: 12} {
+			if err := tx.Model(&model.ActivationCode{}).Where("used_at = 0 AND days = ?", days).
+				Updates(map[string]any{"months": months, "days": 0}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
@@ -2636,6 +2714,12 @@ func InitDB(dbPath string) error {
 
 	if err := initModels(); err != nil {
 		return err
+	}
+	// A migration that drops a column leaves statements prepared on the pooled
+	// PostgreSQL connections failing ("cached plan must not change result type").
+	if IsPostgres() {
+		sqlDB.SetMaxIdleConns(0)
+		sqlDB.SetMaxIdleConns(maxIdle)
 	}
 
 	isUsersEmpty, err := isTableEmpty("users")

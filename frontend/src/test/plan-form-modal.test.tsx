@@ -90,25 +90,26 @@ describe('PlanFormModal', () => {
     ]);
   });
 
-  // A plan sold only by some terms saves them, shortest first; none ticked sells it for any.
+  // A plan sold only by some terms saves their calendar months, shortest first; none
+  // ticked sells it for any.
   it('saves the terms the plan is sold by', async () => {
     const onConfirm = vi.fn();
     renderWithProviders(
       <PlanFormModal
         open
-        plan={{ ...plan, termDays: [30] }}
+        plan={{ ...plan, termMonths: [1] }}
         onClose={() => {}}
         onConfirm={onConfirm}
       />,
     );
-    const monthly = screen.getByRole('checkbox', { name: '月付（30 天）' }) as HTMLInputElement;
+    const monthly = screen.getByRole('checkbox', { name: '月付（1 个月）' }) as HTMLInputElement;
     expect(monthly.checked).toBe(true);
     fireEvent.click(monthly);
-    fireEvent.click(screen.getByRole('checkbox', { name: '年付（365 天）' }));
-    fireEvent.click(screen.getByRole('checkbox', { name: '季付（90 天）' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '年付（12 个月）' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '季付（3 个月）' }));
     await save();
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
-    expect(onConfirm.mock.calls[0][0].termDays).toEqual([90, 365]);
+    expect(onConfirm.mock.calls[0][0].termMonths).toEqual([3, 12]);
   });
 
   // Ticked by default, every edit re-stamped the members' limits, even one that only added a server.

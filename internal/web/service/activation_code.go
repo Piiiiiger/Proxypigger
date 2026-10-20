@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"math"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +30,6 @@ var activationUseMu sync.Mutex
 
 const (
 	activationCodeMaxBatch = 200
-	activationCodeMaxDays  = 36500
 	// No 0/O or 1/I, which are misread when typed; 32 letters keep each byte unbiased.
 	activationCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	activationCodeLength   = 16
@@ -46,12 +46,13 @@ type ActivationCodeService struct {
 }
 
 // ActivationCodeInput asks for count codes for a plan, each granting the same quota
-// (bytes, 0 for none), days (0 never expires) and monthly reset day (0 for none).
+// (bytes, 0 for none), months or days (neither never expires) and monthly reset day.
 type ActivationCodeInput struct {
 	PlanId   int    `json:"planId" example:"2"`
 	Count    int    `json:"count" example:"5"`
 	TotalGB  int64  `json:"totalGB" example:"107374182400"`
-	Days     int    `json:"days" example:"30"`
+	Months   int    `json:"months" example:"1"`
+	Days     int    `json:"days" example:"0"`
 	ResetDay int    `json:"resetDay" example:"1"`
 	Note     string `json:"note" example:"March group"`
 }
@@ -62,8 +63,10 @@ func (s *ActivationCodeService) Create(in ActivationCodeInput) ([]model.Activati
 	switch {
 	case in.Count < 1 || in.Count > activationCodeMaxBatch:
 		return nil, common.NewErrorf("make 1 to %d codes at a time", activationCodeMaxBatch)
-	case in.TotalGB < 0 || in.Days < 0 || in.Days > activationCodeMaxDays:
-		return nil, common.NewErrorf("the quota cannot be negative and the days must be 0 to %d", activationCodeMaxDays)
+	case in.TotalGB < 0:
+		return nil, common.NewError("the quota cannot be negative")
+	case in.Months < 0 || in.Days < 0 || (in.Months > 0 && in.Days > 0) || in.Months > maxTermMonths || in.Days > maxTermDays:
+		return nil, common.NewErrorf("a code lasts 0 to %d months or 0 to %d days, not both", maxTermMonths, maxTermDays)
 	case in.ResetDay < 0 || in.ResetDay > 31:
 		return nil, common.NewError("the reset day must be 0 (none) to 31")
 	case utf8.RuneCountInString(in.Note) > 256:
@@ -73,7 +76,7 @@ func (s *ActivationCodeService) Create(in ActivationCodeInput) ([]model.Activati
 		return nil, err
 	} else if len(inboundIds) == 0 {
 		return nil, common.NewError("the plan has no nodes yet, so a code for it would give nothing")
-	} else if err := checkPlanTerm(plan, in.Days, "plan %q is sold by %s days only"); err != nil {
+	} else if err := checkPlanTerm(plan, RenewalTerm{Months: in.Months, Days: in.Days}, "plan %q is sold by %s months only"); err != nil {
 		return nil, err
 	}
 	codes := make([]model.ActivationCode, 0, in.Count)
@@ -84,7 +87,7 @@ func (s *ActivationCodeService) Create(in ActivationCodeInput) ([]model.Activati
 				return err
 			}
 			row := model.ActivationCode{
-				Code: code, PlanId: in.PlanId, TotalGB: in.TotalGB, Days: in.Days, ResetDay: in.ResetDay,
+				Code: code, PlanId: in.PlanId, TotalGB: in.TotalGB, Months: in.Months, Days: in.Days, ResetDay: in.ResetDay,
 				Note: strings.TrimSpace(in.Note),
 			}
 			if err := tx.Create(&row).Error; err != nil {
@@ -107,7 +110,13 @@ func (s *ActivationCodeService) List(planId int) ([]model.ActivationCode, error)
 	if planId > 0 {
 		query = query.Where("plan_id = ?", planId)
 	}
-	return codes, query.Find(&codes).Error
+	if err := query.Find(&codes).Error; err != nil {
+		return nil, err
+	}
+	for i := range codes {
+		codes[i].ExpiresAt, _ = activationCodeDeadline(&codes[i])
+	}
+	return codes, nil
 }
 
 func (s *ActivationCodeService) Delete(id int) error {
@@ -155,7 +164,8 @@ func (s *ActivationCodeService) Register(inboundSvc *InboundService, username, p
 		needRestart = s.undoRegistration(inboundSvc, grant, username, needRestart)
 		return nil, needRestart, err
 	}
-	err = database.GetDB().Model(&model.ClientRecord{}).Where("email = ?", username).UpdateColumn("plan_id", plan.Id).Error
+	err = database.GetDB().Model(&model.ClientRecord{}).Where("email = ?", username).
+		UpdateColumns(map[string]any{"plan_id": plan.Id, "renew_day": codeRenewDay(grant)}).Error
 	if err == nil {
 		err = s.portalService.SetPassword(username, password)
 	}
@@ -236,6 +246,11 @@ func (s *ActivationCodeService) redeem(inboundSvc *InboundService, email string,
 	if err != nil {
 		return needRestart, err
 	}
+	if grant.Months > 0 {
+		if err := database.GetDB().Model(&model.ClientRecord{}).Where("id = ?", rec.Id).UpdateColumn("renew_day", grant.RedeemDay).Error; err != nil {
+			return needRestart, err
+		}
+	}
 	nr, err = s.clientService.ResetTrafficByEmail(inboundSvc, email)
 	return needRestart || nr, err
 }
@@ -280,12 +295,12 @@ func (s *ActivationCodeService) claim(code, who string, renewal *model.ClientRec
 	grant.UsedAt = now
 	updates := map[string]any{"used_at": now, "used_by": who}
 	if renewal != nil {
-		expiry, err := codeExpiry(&grant, max(now, renewal.ExpiryTime))
+		expiry, day, err := codeRenewal(&grant, renewal, now)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		grant.RedeemExpiry = &expiry
-		updates["redeem_expiry"] = expiry
+		grant.RedeemExpiry, grant.RedeemDay = &expiry, day
+		updates["redeem_expiry"], updates["redeem_day"] = expiry, day
 	}
 	res := db.Model(&model.ActivationCode{}).Where("id = ? AND used_at = 0", grant.Id).
 		Updates(updates)
@@ -345,12 +360,54 @@ func codeExpiry(grant *model.ActivationCode, start int64) (int64, error) {
 	return start + remaining, nil
 }
 
-func activationCodeDeadline(grant *model.ActivationCode) (int64, error) {
-	if grant.Days == 0 {
-		return 0, nil
+// codeRenewal is what a code adds to a signed-in user on top of what is left (from now
+// once that has run out), and the day to remember for the next renewal.
+func codeRenewal(grant *model.ActivationCode, rec *model.ClientRecord, now int64) (int64, int, error) {
+	if grant.Months == 0 {
+		expiry, err := codeExpiry(grant, max(now, rec.ExpiryTime))
+		return expiry, rec.RenewDay, err
 	}
-	if grant.Days < 0 || grant.Days > activationCodeMaxDays || grant.CreatedAt <= 0 || grant.CreatedAt > math.MaxInt64-int64(grant.Days)*planDayMillis {
+	if grant.Months < 0 || grant.Months > maxTermMonths || grant.UsedAt < grant.CreatedAt {
+		return 0, 0, ErrActivationCode
+	}
+	start, day := time.UnixMilli(now), time.UnixMilli(now).In(AccountLocation).Day()
+	if rec.ExpiryTime > now {
+		start, day = time.UnixMilli(rec.ExpiryTime), renewalDay(time.UnixMilli(rec.ExpiryTime), rec.RenewDay)
+	}
+	next, err := monthsLater(start, grant.Months, day)
+	if err != nil {
+		return 0, 0, err
+	}
+	deadline, err := activationCodeDeadline(grant)
+	if err != nil || deadline <= grant.UsedAt {
+		return 0, 0, ErrActivationCode
+	}
+	// Worth the share of its validity left when used, in the months it is added to:
+	// the full months when fresh, never an end before start when nearly lapsed.
+	worth := new(big.Int).Mul(big.NewInt(next-start.UnixMilli()), big.NewInt(deadline-grant.UsedAt))
+	worth.Quo(worth, big.NewInt(deadline-grant.CreatedAt))
+	return start.UnixMilli() + worth.Int64(), day, nil
+}
+
+// codeRenewDay is the day a new user's renewals by months land on: the day their
+// code was made, which their first period ends on.
+func codeRenewDay(grant *model.ActivationCode) int {
+	if grant.Months == 0 {
+		return 0
+	}
+	return time.UnixMilli(grant.CreatedAt).In(AccountLocation).Day()
+}
+
+func activationCodeDeadline(grant *model.ActivationCode) (int64, error) {
+	switch {
+	case grant.Months == 0 && grant.Days == 0:
+		return 0, nil
+	case grant.Months < 0 || grant.Days < 0 || grant.Months > maxTermMonths || grant.Days > maxTermDays ||
+		grant.CreatedAt <= 0 || grant.CreatedAt > math.MaxInt64-int64(grant.Days)*planDayMillis:
 		return 0, common.NewError("the activation exceeds the supported expiry range")
+	case grant.Months > 0:
+		created := time.UnixMilli(grant.CreatedAt)
+		return addMonths(created, grant.Months, created.In(AccountLocation).Day(), AccountLocation).UnixMilli(), nil
 	}
 	return grant.CreatedAt + int64(grant.Days)*planDayMillis, nil
 }

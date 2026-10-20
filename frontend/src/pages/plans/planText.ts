@@ -38,16 +38,16 @@ export function useInboundChoices() {
   }, [inbounds, nodes, t]);
 }
 
-// The terms a plan can be sold by, and how people name them.
-export const PLAN_TERMS = [30, 90, 180, 365];
-const TERM_NAMES: Record<number, string> = { 30: '月付', 90: '季付', 180: '半年付', 365: '年付' };
+// The terms a plan can be sold by, in calendar months, and how people name them.
+export const PLAN_TERMS = [1, 3, 6, 12];
+const TERM_NAMES: Record<number, string> = { 1: '月付', 3: '季付', 6: '半年付', 12: '年付' };
 
-export function termLabel(days: number): string {
-  const name = TERM_NAMES[days];
-  return name ? `${name}（${days} 天）` : `${days} 天`;
+export function termLabel(months: number): string {
+  const name = TERM_NAMES[months];
+  return name ? `${name}（${months} 个月）` : `${months} 个月`;
 }
 
-export function termsText(days: number[] | undefined): string {
-  if (!days?.length) return '不限';
-  return days.map((d) => TERM_NAMES[d] ?? `${d} 天`).join(' · ');
+export function termsText(months: number[] | undefined): string {
+  if (!months?.length) return '不限';
+  return months.map((m) => TERM_NAMES[m] ?? `${m} 个月`).join(' · ');
 }

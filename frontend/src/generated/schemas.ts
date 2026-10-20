@@ -428,10 +428,20 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "integer"
       },
       "days": {
-        "example": 30,
+        "example": 0,
+        "type": "integer"
+      },
+      "expiresAt": {
+        "description": "ExpiresAt is when an unused code lapses, worked out for the list; 0 for never.",
+        "example": 1738368000000,
+        "format": "int64",
         "type": "integer"
       },
       "id": {
+        "example": 1,
+        "type": "integer"
+      },
+      "months": {
         "example": 1,
         "type": "integer"
       },
@@ -448,7 +458,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "integer"
       },
       "totalGB": {
-        "description": "TotalGB is the quota in bytes, 0 for none. Days counts from CreatedAt,\nincluding time spent unused; 0 never expires. ResetDay 0 never resets.",
+        "description": "TotalGB is the quota in bytes, 0 for none. Months (calendar) or Days count from\nCreatedAt, including time spent unused; neither never expires. ResetDay 0 never resets.",
         "example": 107374182400,
         "format": "int64",
         "type": "integer"
@@ -467,7 +477,9 @@ export const SCHEMAS: Record<string, unknown> = {
       "code",
       "createdAt",
       "days",
+      "expiresAt",
       "id",
+      "months",
       "note",
       "planId",
       "resetDay",
@@ -478,14 +490,18 @@ export const SCHEMAS: Record<string, unknown> = {
     "type": "object"
   },
   "ActivationCodeInput": {
-    "description": "ActivationCodeInput asks for count codes for a plan, each granting the same quota\n(bytes, 0 for none), days (0 never expires) and monthly reset day (0 for none).",
+    "description": "ActivationCodeInput asks for count codes for a plan, each granting the same quota\n(bytes, 0 for none), months or days (neither never expires) and monthly reset day.",
     "properties": {
       "count": {
         "example": 5,
         "type": "integer"
       },
       "days": {
-        "example": 30,
+        "example": 0,
+        "type": "integer"
+      },
+      "months": {
+        "example": 1,
         "type": "integer"
       },
       "note": {
@@ -509,6 +525,7 @@ export const SCHEMAS: Record<string, unknown> = {
     "required": [
       "count",
       "days",
+      "months",
       "note",
       "planId",
       "resetDay",
@@ -5858,11 +5875,11 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": 1,
         "type": "integer"
       },
-      "termDays": {
-        "description": "TermDays are the only terms the plan is sold and renewed by; none allows any.",
+      "termMonths": {
+        "description": "TermMonths are the only terms in calendar months the plan is sold and renewed\nby; none allows any.",
         "example": [
-          90,
-          365
+          3,
+          12
         ],
         "items": {
           "type": "integer"
@@ -5974,10 +5991,10 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": 1,
         "type": "integer"
       },
-      "termDays": {
+      "termMonths": {
         "example": [
-          90,
-          365
+          3,
+          12
         ],
         "items": {
           "type": "integer"

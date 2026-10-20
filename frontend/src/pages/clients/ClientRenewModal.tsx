@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Checkbox, Form, InputNumber, Modal, message } from 'antd';
+import { Checkbox, Form, InputNumber, Modal, Select, Space, message } from 'antd';
 
 import { useClientRenew } from '@/api/queries/useClientRenew';
 
@@ -11,9 +11,11 @@ interface ClientRenewModalProps {
   onRenewed?: () => void;
 }
 
-const DEFAULT_DAYS = 30;
+type Unit = 'months' | 'days';
 
-/** 续期: days on top of the later of today and each user's expiry, the usage cleared or kept. */
+const MAX_MONTHS = 1200;
+
+/** 续期: calendar months or days on top of the later of today and each user's expiry, the usage cleared or kept. */
 export default function ClientRenewModal({
   open,
   emails,
@@ -23,22 +25,25 @@ export default function ClientRenewModal({
   const { t } = useTranslation();
   const [messageApi, messageContextHolder] = message.useMessage();
   const renew = useClientRenew();
-  const [days, setDays] = useState<number | null>(DEFAULT_DAYS);
+  const [amount, setAmount] = useState<number | null>(1);
+  const [unit, setUnit] = useState<Unit>('months');
   const [resetUsage, setResetUsage] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Closed, it starts over: the next renewal opens on a month with the usage cleared.
   function close() {
-    setDays(DEFAULT_DAYS);
+    setAmount(1);
+    setUnit('months');
     setResetUsage(true);
     onClose();
   }
 
   async function submit() {
-    if (!days || days < 1) return;
+    if (!amount || amount < 1) return;
     setSaving(true);
     try {
-      const msg = await renew({ emails, days, resetUsage });
+      const term = unit === 'months' ? { months: amount, days: 0 } : { months: 0, days: amount };
+      const msg = await renew({ emails, ...term, resetUsage });
       if (msg?.success) {
         messageApi.success(t('pages.plans.toasts.renewed', { count: emails.length }));
         onRenewed?.();
@@ -59,7 +64,7 @@ export default function ClientRenewModal({
       }
       okText={t('pages.plans.renew')}
       cancelText={t('cancel')}
-      okButtonProps={{ disabled: !days || days < 1 }}
+      okButtonProps={{ disabled: !amount || amount < 1 }}
       confirmLoading={saving}
       width={440}
       onOk={submit}
@@ -68,19 +73,35 @@ export default function ClientRenewModal({
       {messageContextHolder}
       <Form layout="vertical" component="div">
         <Form.Item
-          label={t('pages.clients.renewAddDays')}
-          htmlFor="client-renew-days"
+          label={t('pages.clients.renewAdd')}
+          htmlFor="client-renew-amount"
           extra={t('pages.clients.renewHint')}
         >
-          <InputNumber
-            id="client-renew-days"
-            min={1}
-            precision={0}
-            value={days}
-            onChange={(value) => setDays(value)}
-            suffix={t('pages.plans.daysUnit')}
-            style={{ width: '100%' }}
-          />
+          <Space.Compact style={{ display: 'flex' }}>
+            <InputNumber
+              id="client-renew-amount"
+              min={1}
+              max={unit === 'months' ? MAX_MONTHS : 36500}
+              precision={0}
+              value={amount}
+              onChange={(value) => setAmount(value)}
+              style={{ flex: 1 }}
+            />
+            <Select<Unit>
+              id="client-renew-unit"
+              aria-label={t('pages.settings.notifyTime.unit')}
+              value={unit}
+              onChange={(next) => {
+                setUnit(next);
+                if (next === 'months' && amount && amount > MAX_MONTHS) setAmount(MAX_MONTHS);
+              }}
+              options={[
+                { value: 'months', label: t('pages.plans.monthsUnit') },
+                { value: 'days', label: t('pages.plans.daysUnit') },
+              ]}
+              style={{ width: 120 }}
+            />
+          </Space.Compact>
         </Form.Item>
         <Checkbox checked={resetUsage} onChange={(event) => setResetUsage(event.target.checked)}>
           {t('pages.plans.resetTraffic')}

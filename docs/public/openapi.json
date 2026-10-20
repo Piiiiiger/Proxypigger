@@ -454,10 +454,20 @@
             "type": "integer"
           },
           "days": {
-            "example": 30,
+            "example": 0,
+            "type": "integer"
+          },
+          "expiresAt": {
+            "description": "ExpiresAt is when an unused code lapses, worked out for the list; 0 for never.",
+            "example": 1738368000000,
+            "format": "int64",
             "type": "integer"
           },
           "id": {
+            "example": 1,
+            "type": "integer"
+          },
+          "months": {
             "example": 1,
             "type": "integer"
           },
@@ -474,7 +484,7 @@
             "type": "integer"
           },
           "totalGB": {
-            "description": "TotalGB is the quota in bytes, 0 for none. Days counts from CreatedAt,\nincluding time spent unused; 0 never expires. ResetDay 0 never resets.",
+            "description": "TotalGB is the quota in bytes, 0 for none. Months (calendar) or Days count from\nCreatedAt, including time spent unused; neither never expires. ResetDay 0 never resets.",
             "example": 107374182400,
             "format": "int64",
             "type": "integer"
@@ -493,7 +503,9 @@
           "code",
           "createdAt",
           "days",
+          "expiresAt",
           "id",
+          "months",
           "note",
           "planId",
           "resetDay",
@@ -504,14 +516,18 @@
         "type": "object"
       },
       "ActivationCodeInput": {
-        "description": "ActivationCodeInput asks for count codes for a plan, each granting the same quota\n(bytes, 0 for none), days (0 never expires) and monthly reset day (0 for none).",
+        "description": "ActivationCodeInput asks for count codes for a plan, each granting the same quota\n(bytes, 0 for none), months or days (neither never expires) and monthly reset day.",
         "properties": {
           "count": {
             "example": 5,
             "type": "integer"
           },
           "days": {
-            "example": 30,
+            "example": 0,
+            "type": "integer"
+          },
+          "months": {
+            "example": 1,
             "type": "integer"
           },
           "note": {
@@ -535,6 +551,7 @@
         "required": [
           "count",
           "days",
+          "months",
           "note",
           "planId",
           "resetDay",
@@ -5884,11 +5901,11 @@
             "example": 1,
             "type": "integer"
           },
-          "termDays": {
-            "description": "TermDays are the only terms the plan is sold and renewed by; none allows any.",
+          "termMonths": {
+            "description": "TermMonths are the only terms in calendar months the plan is sold and renewed\nby; none allows any.",
             "example": [
-              90,
-              365
+              3,
+              12
             ],
             "items": {
               "type": "integer"
@@ -6000,10 +6017,10 @@
             "example": 1,
             "type": "integer"
           },
-          "termDays": {
+          "termMonths": {
             "example": [
-              90,
-              365
+              3,
+              12
             ],
             "items": {
               "type": "integer"
@@ -13334,7 +13351,7 @@
         "tags": [
           "Clients"
         ],
-        "summary": "Renew clients: each expiry moves forward by days from the later of now and the current expiry. A client without an expiry keeps none, and one whose period starts at first use gets a longer one. resetUsage also zeroes usage and re-enables the client; without it, only a client auto-disabled for expiry or quota is re-enabled, once the renewal lifts it out of depletion. days must be at least 1, and one of the terms of the plan each client is on when that plan has termDays; otherwise nobody is renewed.",
+        "summary": "Renew clients: each expiry moves forward by months or days from the later of now and the current expiry. A month ends on the same date of the next month (UTC+8), on its last day when that month is shorter, and later renewals return to the remembered day: 31 Jan, 28 Feb, 31 Mar. A client without an expiry keeps none, and one whose period starts at first use gets a longer one. resetUsage also zeroes usage and re-enables the client; without it, only a client auto-disabled for expiry or quota is re-enabled, once the renewal lifts it out of depletion. Give exactly one of months (1 to 1200) and days (1 to 36500); on a plan with termMonths only one of its months is taken; otherwise nobody is renewed.",
         "operationId": "post_panel_api_clients_renew",
         "requestBody": {
           "required": true,
@@ -13348,7 +13365,8 @@
                   "alice",
                   "bob"
                 ],
-                "days": 30,
+                "months": 1,
+                "days": 0,
                 "resetUsage": true
               }
             }
@@ -17006,8 +17024,10 @@
                     {
                       "code": "7KQ3-X9MZ-2F4H-RT8W",
                       "createdAt": 1735689600000,
-                      "days": 30,
+                      "days": 0,
+                      "expiresAt": 1738368000000,
                       "id": 1,
+                      "months": 1,
                       "note": "for alice",
                       "planId": 2,
                       "resetDay": 1,
@@ -17028,7 +17048,7 @@
         "tags": [
           "Plans"
         ],
-        "summary": "Create 1 to 200 single-use activation codes for a plan with nodes. Each grants the quota in bytes, validity in days counted from creation (including unused time), and monthly reset day. Expired codes cannot be redeemed; renewal adds only their remaining validity. Zero means unlimited quota, no expiry or no reset respectively. A plan with termDays only takes days that are one of its terms.",
+        "summary": "Create 1 to 200 single-use activation codes for a plan with nodes. Each grants the quota in bytes, a validity of calendar months or of days counted from creation (including unused time), and monthly reset day. Expired codes cannot be redeemed; a renewal adds the months to the same date (or the days), worth the share of its validity left when the code is used. Zero quota means unlimited, months and days both 0 never expire, reset day 0 never resets. A plan with termMonths only takes one of its months.",
         "operationId": "post_panel_api_plans_codes_add",
         "requestBody": {
           "required": true,
@@ -17041,7 +17061,8 @@
                 "planId": 1,
                 "count": 5,
                 "totalGB": 107374182400,
-                "days": 30,
+                "months": 1,
+                "days": 0,
                 "resetDay": 22,
                 "note": "March group"
               }
@@ -17076,8 +17097,10 @@
                     {
                       "code": "7KQ3-X9MZ-2F4H-RT8W",
                       "createdAt": 1735689600000,
-                      "days": 30,
+                      "days": 0,
+                      "expiresAt": 1738368000000,
                       "id": 1,
+                      "months": 1,
                       "note": "for alice",
                       "planId": 2,
                       "resetDay": 1,
@@ -17203,9 +17226,9 @@
                       "remark": "Hong Kong and Singapore",
                       "sortIndex": 0,
                       "templateId": 1,
-                      "termDays": [
-                        90,
-                        365
+                      "termMonths": [
+                        3,
+                        12
                       ],
                       "updatedAt": 1735689600000
                     }
@@ -17222,7 +17245,7 @@
         "tags": [
           "Plans"
         ],
-        "summary": "Create a plan. Inbound ids must exist. templateId names the rule template members' Clash subscriptions use; 0 leaves them on the default template. limitIp 0 means no IP limit. termDays, 1 to 36500 each, are the only terms the plan is sold and renewed by (renewals and activation codes); none allows any.",
+        "summary": "Create a plan. Inbound ids must exist. templateId names the rule template members' Clash subscriptions use; 0 leaves them on the default template. limitIp 0 means no IP limit. termMonths, 1 to 1200 calendar months each, are the only terms the plan is sold and renewed by (renewals and activation codes); none allows any.",
         "operationId": "post_panel_api_plans_add",
         "requestBody": {
           "required": true,
@@ -17240,9 +17263,9 @@
                   1,
                   2
                 ],
-                "termDays": [
-                  90,
-                  365
+                "termMonths": [
+                  3,
+                  12
                 ]
               }
             }
@@ -17291,7 +17314,7 @@
         "tags": [
           "Plans"
         ],
-        "summary": "Replace a plan. Every client on the plan is attached to the inbounds the plan gained and detached from those it lost; their other inbounds stay. With applyToMembers, the plan IP limit is also re-stamped onto them; their quota, expiry and usage are left alone. termDays replaces the terms of the plan; leaving it out allows any.",
+        "summary": "Replace a plan. Every client on the plan is attached to the inbounds the plan gained and detached from those it lost; their other inbounds stay. With applyToMembers, the plan IP limit is also re-stamped onto them; their quota, expiry and usage are left alone. termMonths replaces the terms of the plan; leaving it out allows any.",
         "operationId": "post_panel_api_plans_update_id",
         "parameters": [
           {

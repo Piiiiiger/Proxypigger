@@ -51,7 +51,7 @@ func TestRenewAddsDaysFromTheLaterOfNowAndTheExpiry(t *testing.T) {
 	disable(t, "lapsed@renew")
 
 	now := time.Now().UnixMilli()
-	if _, err := (&ClientService{}).Renew(&InboundService{}, emails, 30, true); err != nil {
+	if _, err := (&ClientService{}).Renew(&InboundService{}, emails, RenewalTerm{Days: 30}, true); err != nil {
 		t.Fatalf("renew: %v", err)
 	}
 
@@ -94,7 +94,7 @@ func TestRenewWithoutAResetKeepsUsageAndReenablesOnlyUsersItCutOff(t *testing.T)
 
 	now := time.Now().UnixMilli()
 	emails := []string{"within@renew", "spent@renew", "paused@renew"}
-	if _, err := (&ClientService{}).Renew(&InboundService{}, emails, 30, false); err != nil {
+	if _, err := (&ClientService{}).Renew(&InboundService{}, emails, RenewalTerm{Days: 30}, false); err != nil {
 		t.Fatalf("renew: %v", err)
 	}
 
@@ -113,11 +113,29 @@ func TestRenewWithoutAResetKeepsUsageAndReenablesOnlyUsersItCutOff(t *testing.T)
 	}
 }
 
-func TestRenewNeedsAtLeastADay(t *testing.T) {
+// Renewing by months saves the day it lands on, so a user on the 31st comes back to
+// it after February: 31 January, 28 February, 31 March.
+func TestRenewByMonthsRemembersTheDay(t *testing.T) {
+	a, _, _ := setupPlanDB(t)
+	createPlanClient(t, "eom@renew", []int{a}, time.Date(2035, time.January, 31, 20, 0, 0, 0, AccountLocation).UnixMilli())
+	for _, want := range []time.Time{
+		time.Date(2035, time.February, 28, 20, 0, 0, 0, AccountLocation),
+		time.Date(2035, time.March, 31, 20, 0, 0, 0, AccountLocation),
+	} {
+		if _, err := (&ClientService{}).Renew(&InboundService{}, []string{"eom@renew"}, RenewalTerm{Months: 1}, false); err != nil {
+			t.Fatal(err)
+		}
+		if rec := planRecord(t, "eom@renew"); rec.ExpiryTime != want.UnixMilli() || rec.RenewDay != 31 {
+			t.Fatalf("renewed to %s on day %d, want %s on day 31", dateOf(rec.ExpiryTime), rec.RenewDay, dateOf(want.UnixMilli()))
+		}
+	}
+}
+
+func TestRenewNeedsMonthsOrDays(t *testing.T) {
 	a, _, _ := setupPlanDB(t)
 	createPlanClient(t, "zero@renew", []int{a}, 0)
-	if _, err := (&ClientService{}).Renew(&InboundService{}, []string{"zero@renew"}, 0, true); err == nil || err.Error() != "a renewal adds at least one day\n" {
-		t.Fatalf("renew 0 days = %v, want the minimum-day error", err)
+	if _, err := (&ClientService{}).Renew(&InboundService{}, []string{"zero@renew"}, RenewalTerm{}, true); err == nil || err.Error() != "a renewal is a number of months or a number of days\n" {
+		t.Fatalf("renew without a term = %v, want the term error", err)
 	}
 }
 
@@ -125,19 +143,21 @@ func TestRenewRejectsOverflowWithoutChangingExpiryOrUsage(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		expiry int64
-		days   int
+		term   RenewalTerm
+		want   string
 	}{
-		{"duration", 0, int(math.MaxInt64/planDayMs + 1)},
-		{"expiry", math.MaxInt64 - planDayMs, 2},
-		{"first use", math.MinInt64 + planDayMs, 2},
+		{"duration", 0, RenewalTerm{Days: 36501}, "a renewal is at most 1200 months or 36500 days"},
+		{"expiry", math.MaxInt64 - planDayMs, RenewalTerm{Days: 2}, "the renewal exceeds the supported expiry range\n"},
+		{"expiry by months", math.MaxInt64 - planDayMs, RenewalTerm{Months: 1}, "the renewal exceeds the supported expiry range\n"},
+		{"first use", math.MinInt64 + planDayMs, RenewalTerm{Days: 2}, "the renewal exceeds the supported expiry range\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a, _, _ := setupPlanDB(t)
 			createPlanClient(t, "overflow@renew", []int{a}, tc.expiry)
 			beforeExpiry := planRecord(t, "overflow@renew").ExpiryTime
 			seedUsage(t, "overflow@renew", planGiB, 2*planGiB)
-			if _, err := (&ClientService{}).Renew(&InboundService{}, []string{"overflow@renew"}, tc.days, true); err == nil || err.Error() != "the renewal exceeds the supported expiry range\n" {
-				t.Fatalf("renew = %v, want the expiry-range error", err)
+			if _, err := (&ClientService{}).Renew(&InboundService{}, []string{"overflow@renew"}, tc.term, true); err == nil || err.Error() != tc.want {
+				t.Fatalf("renew = %v, want %q", err, tc.want)
 			}
 			if got := planRecord(t, "overflow@renew").ExpiryTime; got != beforeExpiry {
 				t.Errorf("expiry changed to %d, want %d", got, beforeExpiry)

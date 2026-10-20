@@ -20,7 +20,44 @@ import (
 
 const userListPageSize = 10
 
-var renewDayChoices = []int{7, 30, 90, 180, 365}
+// renewChoices are the terms offered to a user whose plan sets none.
+var renewChoices = []service.RenewalTerm{{Days: 7}, {Months: 1}, {Months: 3}, {Months: 6}, {Months: 12}}
+
+// termText names a renewal term: years and months by the calendar, or days.
+func termText(term service.RenewalTerm) string {
+	switch {
+	case term.Days > 0:
+		return fmt.Sprintf("%d 天", term.Days)
+	case term.Months%12 == 0:
+		return fmt.Sprintf("%d 年", term.Months/12)
+	}
+	return fmt.Sprintf("%d 个月", term.Months)
+}
+
+// termToken and parseTerm carry a term in a button: "3m" is three months, "7d" a week.
+func termToken(term service.RenewalTerm) string {
+	if term.Days > 0 {
+		return fmt.Sprintf("%dd", term.Days)
+	}
+	return fmt.Sprintf("%dm", term.Months)
+}
+
+func parseTerm(token string) (service.RenewalTerm, bool) {
+	if len(token) < 2 {
+		return service.RenewalTerm{}, false
+	}
+	n, err := strconv.Atoi(token[:len(token)-1])
+	if err != nil || n < 1 {
+		return service.RenewalTerm{}, false
+	}
+	switch token[len(token)-1] {
+	case 'm':
+		return service.RenewalTerm{Months: n}, true
+	case 'd':
+		return service.RenewalTerm{Days: n}, true
+	}
+	return service.RenewalTerm{}, false
+}
 
 // adminRow is one user as the admin menus list them.
 type adminRow struct {
@@ -328,21 +365,24 @@ func (t *Tgbot) renewMenuView(id int, reset bool, now time.Time) botView {
 	if reset {
 		r, toggle = 1, "☑️ 同时清零已用流量"
 	}
-	text := fmt.Sprintf("🔁 为 <b>%s</b> 续期\n当前到期：%s\n天数从当前到期日往后加；已到期的从现在算。", esc(rec.Email), expiryText(rec.ExpiryTime, now))
-	choices := renewDayChoices
+	text := fmt.Sprintf("🔁 为 <b>%s</b> 续期\n当前到期：%s\n从当前到期日往后加，已到期的从现在算；按月续到下个月的同一天。", esc(rec.Email), expiryText(rec.ExpiryTime, now))
+	choices := renewChoices
 	var plan model.Plan
 	if rec.PlanId > 0 && database.GetDB().First(&plan, rec.PlanId).Error == nil {
-		if terms := service.PlanTermDays(&plan); len(terms) > 0 {
-			choices = terms
+		if terms := service.PlanTermMonths(&plan); len(terms) > 0 {
+			choices = nil
+			for _, months := range terms {
+				choices = append(choices, service.RenewalTerm{Months: months})
+			}
 			text += fmt.Sprintf("\n套餐「%s」只按这些周期续费。", esc(plan.Name))
 		}
 	}
 	var rows [][]telego.InlineKeyboardButton
-	for i, d := range choices {
+	for i, term := range choices {
 		if i%3 == 0 {
 			rows = append(rows, nil)
 		}
-		rows[len(rows)-1] = append(rows[len(rows)-1], button(fmt.Sprintf("+%d 天", d), fmt.Sprintf("pg:a:rc:%d:%d:%d", id, d, r)))
+		rows[len(rows)-1] = append(rows[len(rows)-1], button("+"+termText(term), fmt.Sprintf("pg:a:rc:%d:%s:%d", id, termToken(term), r)))
 	}
 	return botView{text, keyboard(append(rows,
 		[]telego.InlineKeyboardButton{button(toggle, fmt.Sprintf("pg:a:r:%d:%d", id, 1-r))},
@@ -350,7 +390,7 @@ func (t *Tgbot) renewMenuView(id int, reset bool, now time.Time) botView {
 	)...)}
 }
 
-func (t *Tgbot) renewConfirmView(id, days int, reset bool, now time.Time) botView {
+func (t *Tgbot) renewConfirmView(id int, term service.RenewalTerm, reset bool, now time.Time) botView {
 	rec, ok := loadClient(id)
 	if !ok {
 		return goneView()
@@ -359,12 +399,12 @@ func (t *Tgbot) renewConfirmView(id, days int, reset bool, now time.Time) botVie
 	if reset {
 		r = 1
 	}
-	next, err := service.RenewedExpiry(rec.ExpiryTime, days, now)
+	next, _, err := service.RenewedExpiry(rec.ExpiryTime, rec.RenewDay, term, now)
 	if err != nil {
 		return botView{"无法续期：" + esc(err.Error()), keyboard(cardBack(id))}
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "确认为 <b>%s</b> 续期 %d 天？\n到期：%s → %s\n", esc(rec.Email), days, expiryText(rec.ExpiryTime, now), expiryText(next, now))
+	fmt.Fprintf(&b, "确认为 <b>%s</b> 续期 %s？\n到期：%s → %s\n", esc(rec.Email), termText(term), expiryText(rec.ExpiryTime, now), expiryText(next, now))
 	if traffic, err := t.inboundService.GetClientTrafficByEmail(rec.Email); err == nil && traffic != nil && reset {
 		fmt.Fprintf(&b, "已用流量 %s 将清零。", formatBytes(traffic.Up+traffic.Down))
 	} else if reset {
@@ -374,7 +414,7 @@ func (t *Tgbot) renewConfirmView(id, days int, reset bool, now time.Time) botVie
 	}
 	token := issueActionToken(now)
 	return botView{b.String(), keyboard([]telego.InlineKeyboardButton{
-		button("✅ 确认续期", fmt.Sprintf("pg:a:rx:%d:%d:%d:%s", id, days, r, token)),
+		button("✅ 确认续期", fmt.Sprintf("pg:a:rx:%d:%s:%d:%s", id, termToken(term), r, token)),
 		button("⬅️ 返回", fmt.Sprintf("pg:a:r:%d:%d", id, r)),
 	})}
 }
@@ -501,13 +541,15 @@ func (t *Tgbot) answerAdminCallback(q *telego.CallbackQuery, messageID int, rest
 	case "r":
 		view = t.renewMenuView(id, arg(0) != 0, now)
 	case "rc":
-		if days := arg(0); days > 0 {
-			view = t.renewConfirmView(id, days, arg(1) == 1, now)
+		// A button from before terms carried plain days: offer the menu afresh.
+		if term, ok := parseTerm(args[0]); ok {
+			view = t.renewConfirmView(id, term, arg(1) == 1, now)
 		} else {
-			view = t.userCardView(id, now, "")
+			view = t.renewMenuView(id, arg(1) == 1, now)
 		}
 	case "rx":
-		toast, view = t.renewNow(id, arg(0), arg(1) == 1, args, now)
+		term, _ := parseTerm(args[0])
+		toast, view = t.renewNow(id, term, arg(1) == 1, args, now)
 	case "t":
 		view = t.resetConfirmView(id)
 	case "tx":
@@ -541,15 +583,15 @@ func (t *Tgbot) answerAdminCallback(q *telego.CallbackQuery, messageID int, rest
 	t.present(chatID, messageID, view)
 }
 
-func (t *Tgbot) renewNow(id, days int, reset bool, args []string, now time.Time) (string, botView) {
+func (t *Tgbot) renewNow(id int, term service.RenewalTerm, reset bool, args []string, now time.Time) (string, botView) {
 	rec, ok := loadClient(id)
 	if !ok {
 		return "", goneView()
 	}
-	if days <= 0 || len(args) < 3 || !consumeActionToken(args[2], now) {
+	if term == (service.RenewalTerm{}) || len(args) < 3 || !consumeActionToken(args[2], now) {
 		return "这个确认已失效，请重新操作", t.userCardView(id, now, "")
 	}
-	needRestart, err := t.clientService.Renew(&t.inboundService, []string{rec.Email}, days, reset)
+	needRestart, err := t.clientService.Renew(&t.inboundService, []string{rec.Email}, term, reset)
 	if needRestart {
 		t.xrayService.SetToNeedRestart()
 	}
@@ -557,7 +599,7 @@ func (t *Tgbot) renewNow(id, days int, reset bool, args []string, now time.Time)
 		logger.Warning("tgbot: renew", rec.Email, "failed:", err)
 		return "续期失败", t.userCardView(id, now, "❌ 续期失败："+esc(err.Error()))
 	}
-	return fmt.Sprintf("已续期 %d 天", days), t.userCardView(id, now, fmt.Sprintf("✅ 已续期 %d 天", days))
+	return "已续期 " + termText(term), t.userCardView(id, now, "✅ 已续期 "+termText(term))
 }
 
 func (t *Tgbot) resetNow(id int, now time.Time) (string, botView) {

@@ -389,10 +389,11 @@ func (a *ClientController) bulkAdjust(c *gin.Context) {
 	notifyClientsChanged()
 }
 
-// clientRenewRequest gives users Days more from the later of now and their expiry;
-// ResetUsage also zeroes their traffic.
+// clientRenewRequest gives users calendar Months or Days more from the later of now
+// and their expiry; ResetUsage also zeroes their traffic.
 type clientRenewRequest struct {
 	Emails     []string `json:"emails"`
+	Months     int      `json:"months"`
 	Days       int      `json:"days"`
 	ResetUsage bool     `json:"resetUsage"`
 }
@@ -403,7 +404,7 @@ func (a *ClientController) renew(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	needRestart, err := a.clientService.Renew(&a.inboundService, req.Emails, req.Days, req.ResetUsage)
+	needRestart, err := a.clientService.Renew(&a.inboundService, req.Emails, service.RenewalTerm{Months: req.Months, Days: req.Days}, req.ResetUsage)
 	if needRestart {
 		a.xrayService.SetToNeedRestart()
 	}

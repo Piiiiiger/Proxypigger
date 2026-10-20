@@ -114,7 +114,7 @@ func TestDueNoticesComeBackAfterAResetOrARenewal(t *testing.T) {
 	tb.sendAccountNotifications(ctx, now.Add(time.Minute))
 	setUsage(t, "alice", 0, 48<<30)
 	tb.sendAccountNotifications(ctx, now.Add(2*time.Minute))
-	if _, err := (&service.ClientService{}).Renew(&service.InboundService{}, []string{"bob"}, 30, false); err != nil {
+	if _, err := (&service.ClientService{}).Renew(&service.InboundService{}, []string{"bob"}, service.RenewalTerm{Days: 30}, false); err != nil {
 		t.Fatal(err)
 	}
 	tb.sendAccountNotifications(ctx, now.Add(3*time.Minute))

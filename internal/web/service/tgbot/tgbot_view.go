@@ -11,11 +11,12 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
 
 // Account and admin views speak Chinese in Beijing time, the zone the account
-// reminders have always used.
-var accountLocation = time.FixedZone("Asia/Shanghai", 8*60*60)
+// reminders have always used and renewals count calendar months in.
+var accountLocation = service.AccountLocation
 
 const dayMillis = int64(24 * time.Hour / time.Millisecond)
 

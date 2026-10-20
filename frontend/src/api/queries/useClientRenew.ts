@@ -8,11 +8,12 @@ const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } } as cons
 
 export interface ClientRenewRequest {
   emails: string[];
+  months: number;
   days: number;
   resetUsage: boolean;
 }
 
-/** Renews users by days from the later of today and their expiry, optionally clearing usage. */
+/** Renews users by calendar months or days from the later of today and their expiry, optionally clearing usage. */
 export function useClientRenew() {
   const queryClient = useQueryClient();
   const mutation = useMutation({

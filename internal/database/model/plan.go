@@ -17,12 +17,12 @@ type Plan struct {
 	// NodeKeys distinguishes direct and relay subscription variants of an inbound.
 	// Empty storage keeps the historical behavior of including both variants.
 	NodeKeys string `json:"-" gorm:"column:node_keys;type:text;default:''"`
-	// TermDays lists, as JSON, the only terms in days the plan is sold and renewed by;
-	// empty allows any.
-	TermDays  string `json:"-" gorm:"column:term_days;type:text;default:''"`
-	SortIndex int    `json:"sortIndex" gorm:"column:sort_index;default:0" example:"0"`
-	CreatedAt int64  `json:"createdAt" gorm:"autoCreateTime:milli" example:"1735689600000"`
-	UpdatedAt int64  `json:"updatedAt" gorm:"autoUpdateTime:milli" example:"1735689600000"`
+	// TermMonths lists, as JSON, the only terms in calendar months the plan is sold
+	// and renewed by; empty allows any.
+	TermMonths string `json:"-" gorm:"column:term_months;type:text;default:''"`
+	SortIndex  int    `json:"sortIndex" gorm:"column:sort_index;default:0" example:"0"`
+	CreatedAt  int64  `json:"createdAt" gorm:"autoCreateTime:milli" example:"1735689600000"`
+	UpdatedAt  int64  `json:"updatedAt" gorm:"autoUpdateTime:milli" example:"1735689600000"`
 }
 
 // PlanInbound is the plan-to-inbound join: the servers a plan grants its members.

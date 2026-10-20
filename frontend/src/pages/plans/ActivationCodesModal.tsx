@@ -15,7 +15,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
 import type { PlanSummary } from '@/generated/zod';
 import { useActivationCodes } from '@/api/queries/useActivationCodes';
@@ -24,8 +24,9 @@ import { ActivationCodeFormSchema, type ActivationCodeFormValues } from '@/schem
 import { ClipboardManager, SizeFormatter } from '@/utils';
 import { termLabel } from './planText';
 
-export function activationCodeExpiry(code: { days: number; createdAt: number }, now: number) {
-  const expiresAt = code.days > 0 ? code.createdAt + code.days * 86_400_000 : 0;
+// The server works out when a code lapses, calendar months included; this counts down to it.
+export function activationCodeExpiry(code: { expiresAt: number }, now: number) {
+  const { expiresAt } = code;
   return {
     expiresAt,
     remainingDays: expiresAt ? Math.max(0, Math.ceil((expiresAt - now) / 86_400_000)) : 0,
@@ -53,17 +54,26 @@ export default function ActivationCodesModal({
     };
   }, []);
   const [messageApi, contextHolder] = message.useMessage();
-  const terms = plan.termDays ?? [];
+  const terms = plan.termMonths ?? [];
   const methods = useForm<ActivationCodeFormValues>({
-    defaultValues: { count: 1, quotaGB: 0, days: terms[0] ?? 30, resetDay: 0, note: '' },
+    defaultValues: {
+      count: 1,
+      quotaGB: 0,
+      validity: terms[0] ?? 1,
+      unit: 'months',
+      resetDay: 0,
+      note: '',
+    },
   });
+  const unit = useWatch({ control: methods.control, name: 'unit' });
 
   async function create(values: ActivationCodeFormValues) {
     const reply = await codes.create.mutateAsync({
       planId: plan.id,
       count: values.count,
       totalGB: Math.round(values.quotaGB * 1024 ** 3),
-      days: values.days,
+      months: values.unit === 'months' ? values.validity : 0,
+      days: values.unit === 'days' ? values.validity : 0,
       resetDay: values.resetDay,
       note: values.note,
     });
@@ -106,16 +116,42 @@ export default function ActivationCodesModal({
               <InputNumber min={0} precision={2} suffix="GB" style={{ width: '100%' }} />
             </FormField>
             <FormField
-              name="days"
-              label={t('pages.plans.codes.days')}
-              rules={{ validate: rhfZodValidate(ActivationCodeFormSchema.shape.days) }}
+              name="validity"
+              label={t('pages.plans.codes.validity')}
+              rules={{ validate: rhfZodValidate(ActivationCodeFormSchema.shape.validity) }}
             >
               {terms.length > 0 ? (
-                <Select options={terms.map((days) => ({ value: days, label: termLabel(days) }))} />
+                <Select
+                  options={terms.map((months) => ({ value: months, label: termLabel(months) }))}
+                />
               ) : (
-                <InputNumber min={0} max={36500} precision={0} style={{ width: '100%' }} />
+                <InputNumber
+                  min={0}
+                  max={unit === 'months' ? 1200 : 36500}
+                  precision={0}
+                  style={{ width: '100%' }}
+                />
               )}
             </FormField>
+            {terms.length === 0 && (
+              <FormField
+                name="unit"
+                label={t('pages.settings.notifyTime.unit')}
+                onAfterChange={(next) => {
+                  if (next === 'months' && methods.getValues('validity') > 1200) {
+                    methods.setValue('validity', 1200);
+                  }
+                }}
+              >
+                <Select
+                  id="activation-code-unit"
+                  options={[
+                    { value: 'months', label: t('pages.plans.monthsUnit') },
+                    { value: 'days', label: t('pages.plans.daysUnit') },
+                  ]}
+                />
+              </FormField>
+            )}
             <FormField
               name="resetDay"
               label={t('pages.plans.codes.resetDay')}
@@ -178,14 +214,16 @@ export default function ActivationCodesModal({
             render: (_, row) => (
               <div>
                 {row.totalGB ? SizeFormatter.sizeFormat(row.totalGB) : t('unlimited')} ·{' '}
-                {row.days
+                {row.months || row.days
                   ? row.usedAt
-                    ? `${row.days} ${t('pages.plans.daysUnit')}`
+                    ? row.months
+                      ? `${row.months} ${t('pages.plans.monthsUnit')}`
+                      : `${row.days} ${t('pages.plans.daysUnit')}`
                     : t('pages.plans.codes.remainingDays', {
                         days: activationCodeExpiry(row, now).remainingDays,
                       })
                   : t('pages.plans.permanent')}
-                {!row.usedAt && row.days > 0 && (
+                {!row.usedAt && row.expiresAt > 0 && (
                   <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
                     {t('pages.plans.codes.expiresAt')}{' '}
                     <time

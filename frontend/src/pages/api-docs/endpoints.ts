@@ -1418,8 +1418,8 @@ export const sections: readonly Section[] = [
         method: 'POST',
         path: '/panel/api/clients/renew',
         summary:
-          'Renew clients: each expiry moves forward by days from the later of now and the current expiry. A client without an expiry keeps none, and one whose period starts at first use gets a longer one. resetUsage also zeroes usage and re-enables the client; without it, only a client auto-disabled for expiry or quota is re-enabled, once the renewal lifts it out of depletion. days must be at least 1, and one of the terms of the plan each client is on when that plan has termDays; otherwise nobody is renewed.',
-        body: '{\n  "emails": ["alice", "bob"],\n  "days": 30,\n  "resetUsage": true\n}',
+          'Renew clients: each expiry moves forward by months or days from the later of now and the current expiry. A month ends on the same date of the next month (UTC+8), on its last day when that month is shorter, and later renewals return to the remembered day: 31 Jan, 28 Feb, 31 Mar. A client without an expiry keeps none, and one whose period starts at first use gets a longer one. resetUsage also zeroes usage and re-enables the client; without it, only a client auto-disabled for expiry or quota is re-enabled, once the renewal lifts it out of depletion. Give exactly one of months (1 to 1200) and days (1 to 36500); on a plan with termMonths only one of its months is taken; otherwise nobody is renewed.',
+        body: '{\n  "emails": ["alice", "bob"],\n  "months": 1,\n  "days": 0,\n  "resetUsage": true\n}',
         response: '{\n  "success": true,\n  "obj": {\n    "affected": 2\n  }\n}',
       },
       {
@@ -2069,8 +2069,8 @@ export const sections: readonly Section[] = [
         method: 'POST',
         path: '/panel/api/plans/codes/add',
         summary:
-          'Create 1 to 200 single-use activation codes for a plan with nodes. Each grants the quota in bytes, validity in days counted from creation (including unused time), and monthly reset day. Expired codes cannot be redeemed; renewal adds only their remaining validity. Zero means unlimited quota, no expiry or no reset respectively. A plan with termDays only takes days that are one of its terms.',
-        body: '{\n  "planId": 1,\n  "count": 5,\n  "totalGB": 107374182400,\n  "days": 30,\n  "resetDay": 22,\n  "note": "March group"\n}',
+          'Create 1 to 200 single-use activation codes for a plan with nodes. Each grants the quota in bytes, a validity of calendar months or of days counted from creation (including unused time), and monthly reset day. Expired codes cannot be redeemed; a renewal adds the months to the same date (or the days), worth the share of its validity left when the code is used. Zero quota means unlimited, months and days both 0 never expire, reset day 0 never resets. A plan with termMonths only takes one of its months.',
+        body: '{\n  "planId": 1,\n  "count": 5,\n  "totalGB": 107374182400,\n  "months": 1,\n  "days": 0,\n  "resetDay": 22,\n  "note": "March group"\n}',
         responseSchema: 'ActivationCode',
         responseSchemaArray: true,
       },
@@ -2093,15 +2093,15 @@ export const sections: readonly Section[] = [
         method: 'POST',
         path: '/panel/api/plans/add',
         summary:
-          "Create a plan. Inbound ids must exist. templateId names the rule template members' Clash subscriptions use; 0 leaves them on the default template. limitIp 0 means no IP limit. termDays, 1 to 36500 each, are the only terms the plan is sold and renewed by (renewals and activation codes); none allows any.",
-        body: '{\n  "name": "Monthly 100G",\n  "limitIp": 0,\n  "remark": "",\n  "templateId": 0,\n  "inboundIds": [1, 2],\n  "termDays": [90, 365]\n}',
+          "Create a plan. Inbound ids must exist. templateId names the rule template members' Clash subscriptions use; 0 leaves them on the default template. limitIp 0 means no IP limit. termMonths, 1 to 1200 calendar months each, are the only terms the plan is sold and renewed by (renewals and activation codes); none allows any.",
+        body: '{\n  "name": "Monthly 100G",\n  "limitIp": 0,\n  "remark": "",\n  "templateId": 0,\n  "inboundIds": [1, 2],\n  "termMonths": [3, 12]\n}',
         responseSchema: 'Plan',
       },
       {
         method: 'POST',
         path: '/panel/api/plans/update/:id',
         summary:
-          'Replace a plan. Every client on the plan is attached to the inbounds the plan gained and detached from those it lost; their other inbounds stay. With applyToMembers, the plan IP limit is also re-stamped onto them; their quota, expiry and usage are left alone. termDays replaces the terms of the plan; leaving it out allows any.',
+          'Replace a plan. Every client on the plan is attached to the inbounds the plan gained and detached from those it lost; their other inbounds stay. With applyToMembers, the plan IP limit is also re-stamped onto them; their quota, expiry and usage are left alone. termMonths replaces the terms of the plan; leaving it out allows any.',
         params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Plan id.' }],
         body: '{\n  "name": "Monthly 200G",\n  "limitIp": 2,\n  "remark": "",\n  "templateId": 2,\n  "inboundIds": [1, 2],\n  "applyToMembers": true\n}',
         response: '{\n  "success": true,\n  "obj": {\n    "id": 1\n  }\n}',

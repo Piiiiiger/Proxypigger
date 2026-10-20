@@ -194,7 +194,7 @@ describe('ClientsPage (用户管理)', () => {
     await waitFor(() =>
       expect(postStub).toHaveBeenCalledWith(
         '/panel/api/clients/renew',
-        { emails: ['a@x'], days: 30, resetUsage: true },
+        { emails: ['a@x'], months: 1, days: 0, resetUsage: true },
         expect.anything(),
       ),
     );

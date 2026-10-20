@@ -998,8 +998,11 @@ type ClientRecord struct {
 	ResetMax        int    `json:"resetMax" gorm:"column:reset_max;default:0"`
 	TrafficReset    string `json:"trafficReset" gorm:"column:traffic_reset;default:never;index:idx_clients_traffic_reset"`
 	TrafficResetDay int    `json:"trafficResetDay" gorm:"column:traffic_reset_day;default:1"`
-	CreatedAt       int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
-	UpdatedAt       int64  `json:"updatedAt" gorm:"autoUpdateTime:milli"`
+	// RenewDay is the day of the month renewals by months land on, so a 31st comes
+	// back after a shorter month; 0 until the first one.
+	RenewDay  int   `json:"-" gorm:"column:renew_day;not null;default:0"`
+	CreatedAt int64 `json:"createdAt" gorm:"autoCreateTime:milli"`
+	UpdatedAt int64 `json:"updatedAt" gorm:"autoUpdateTime:milli"`
 	// Owned solely by the node-snapshot sweep, which soft-orphans instead of
 	// deleting; orphans from any other cause stay at zero and are never reaped.
 	SyncOrphanedAt int64 `json:"-" gorm:"column:sync_orphaned_at;default:0"`

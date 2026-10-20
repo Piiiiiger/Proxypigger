@@ -110,7 +110,9 @@ export interface ActivationCode {
   code: string;
   createdAt: number;
   days: number;
+  expiresAt: number;
   id: number;
+  months: number;
   note: string;
   planId: number;
   resetDay: number;
@@ -122,6 +124,7 @@ export interface ActivationCode {
 export interface ActivationCodeInput {
   count: number;
   days: number;
+  months: number;
   note: string;
   planId: number;
   resetDay: number;
@@ -1311,7 +1314,7 @@ export interface PlanInput {
   proxyGroups?: PlanProxyGroup[];
   remark: string;
   templateId: number;
-  termDays?: number[];
+  termMonths?: number[];
 }
 
 export interface PlanProxyGroup {
@@ -1333,7 +1336,7 @@ export interface PlanSummary {
   remark: string;
   sortIndex: number;
   templateId: number;
-  termDays?: number[];
+  termMonths?: number[];
   updatedAt: number;
 }
 

@@ -63,4 +63,46 @@ func TestPrepareSQLiteForMigration(t *testing.T) {
 			}
 		}
 	})
+
+	// The copy carries only today's columns, so day terms and day codes must move
+	// to months on the source, or a migrated panel sells every plan by any term.
+	t.Run("moves day terms and codes to months before the copy", func(t *testing.T) {
+		dbPath := filepath.Join(t.TempDir(), "old.db")
+		gdb, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{Logger: logger.Discard})
+		if err != nil {
+			t.Fatalf("open sqlite: %v", err)
+		}
+		if err := gdb.AutoMigrate(&model.User{}, &model.Setting{}, &model.Inbound{}, &model.Plan{}, &model.ActivationCode{}); err != nil {
+			t.Fatalf("automigrate: %v", err)
+		}
+		for _, stmt := range []string{
+			"ALTER TABLE plans DROP COLUMN term_months",
+			"ALTER TABLE plans ADD COLUMN term_days text DEFAULT ''",
+			"ALTER TABLE activation_codes DROP COLUMN months",
+			"INSERT INTO plans (name, limit_ip, template_id, sort_index, term_days) VALUES ('All', 0, 0, 0, '[30,90,180,365]')",
+			"INSERT INTO activation_codes (code, plan_id, total_gb, days, reset_day, note, used_at, used_by, redeem_day, created_at) VALUES ('MONTH', 1, 0, 30, 0, '', 0, '', 0, 1791000000000)",
+		} {
+			if err := gdb.Exec(stmt).Error; err != nil {
+				t.Fatalf("%s: %v", stmt, err)
+			}
+		}
+		closeGorm(gdb)
+
+		if err := PrepareSQLiteForMigration(dbPath); err != nil {
+			t.Fatalf("PrepareSQLiteForMigration: %v", err)
+		}
+		check, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{Logger: logger.Discard})
+		if err != nil {
+			t.Fatalf("reopen sqlite: %v", err)
+		}
+		defer closeGorm(check)
+		var plan model.Plan
+		var code model.ActivationCode
+		if err := check.Where("name = ?", "All").First(&plan).Error; err != nil || plan.TermMonths != "[1,3,6,12]" {
+			t.Errorf("plan terms = %q (%v), want [1,3,6,12]", plan.TermMonths, err)
+		}
+		if err := check.Where("code = ?", "MONTH").First(&code).Error; err != nil || code.Months != 1 || code.Days != 0 {
+			t.Errorf("code = %d months, %d days (%v), want 1 month", code.Months, code.Days, err)
+		}
+	})
 }

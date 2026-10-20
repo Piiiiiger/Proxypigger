@@ -42,13 +42,16 @@ URLs and preview both bodies here:
 
 People sign in at `<subPath>portal` (for example, `/x/portal`). Administrators
 create single-use codes from **Plans → Activation codes**, choosing the plan,
-quota, validity in days and monthly reset day. Zero means unlimited quota,
-no expiry or no periodic reset, respectively.
+quota, validity in calendar months or days and monthly reset day. Zero means
+unlimited quota, no expiry or no periodic reset, respectively. A month ends on
+the same date of the next month (UTC+8), on its last day when that month is
+shorter.
 
 **Register** accepts a username, password and code, then signs the new user in.
 Existing users can choose **Use activation code** to change plan or renew:
-validity is added from the later of today and the existing expiry, and usage
-is reset. If an update fails, retry the same code; its days are granted once.
+validity is added from the later of today and the existing expiry, worth the
+share of the code's validity still left when it is used, and usage is reset.
+If an update fails, retry the same code; its validity is granted once.
 
 The account overview uses one traffic bar, remaining quota, expiry, next reset,
 and a labeled green/red status indicator. The username is shown prominently.

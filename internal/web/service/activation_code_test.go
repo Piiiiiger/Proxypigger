@@ -395,16 +395,21 @@ func TestPlanCannotBeDeletedDuringCodeRegistration(t *testing.T) {
 }
 
 func TestRedeemRejectsExpiryOverflowBeforeUsingTheCode(t *testing.T) {
-	a, _, _ := setupPlanDB(t)
-	createPlanClient(t, "overflow@code", []int{a}, math.MaxInt64-1000)
-	before := *planRecord(t, "overflow@code")
-	code := mustCreateCodes(t, ActivationCodeInput{PlanId: codePlan(t, "Overflow", 2, a).Id, Count: 1, Days: 1})[0]
-	if _, err := (&ActivationCodeService{}).Redeem(&InboundService{}, before.Email, code.Code); err == nil {
-		t.Fatal("overflow was accepted")
-	}
-	after := planRecord(t, before.Email)
-	if after.ExpiryTime != before.ExpiryTime || after.PlanId != before.PlanId || codeRow(t, code.Id).UsedAt != 0 {
-		t.Fatal("rejected overflow changed the user or consumed the code")
+	for name, in := range map[string]ActivationCodeInput{"days": {Days: 1}, "months": {Months: 1}} {
+		t.Run(name, func(t *testing.T) {
+			a, _, _ := setupPlanDB(t)
+			createPlanClient(t, "overflow@code", []int{a}, math.MaxInt64-1000)
+			before := *planRecord(t, "overflow@code")
+			in.PlanId, in.Count = codePlan(t, "Overflow", 2, a).Id, 1
+			code := mustCreateCodes(t, in)[0]
+			if _, err := (&ActivationCodeService{}).Redeem(&InboundService{}, before.Email, code.Code); err == nil {
+				t.Fatal("overflow was accepted")
+			}
+			after := planRecord(t, before.Email)
+			if after.ExpiryTime != before.ExpiryTime || after.PlanId != before.PlanId || codeRow(t, code.Id).UsedAt != 0 {
+				t.Fatal("rejected overflow changed the user or consumed the code")
+			}
+		})
 	}
 }
 

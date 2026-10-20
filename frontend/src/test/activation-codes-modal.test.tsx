@@ -22,12 +22,14 @@ const code = {
   code: 'ABCD-EFGH-JKLM-NPQR',
   planId: 2,
   totalGB: 10 * 1024 ** 3,
-  days: 30,
+  months: 1,
+  days: 0,
   resetDay: 22,
   note: '',
   usedAt: 0,
   usedBy: '',
   createdAt: 0,
+  expiresAt: 0,
 };
 const get = vi.mocked(HttpUtil.get);
 const post = vi.mocked(HttpUtil.post);
@@ -39,10 +41,11 @@ afterEach(() => {
 });
 
 describe('activation codes', () => {
+  // The server works out when a code lapses, calendar months included; the page counts down to it.
   it('counts down unused validity and expires exactly at its deadline', () => {
     const day = 86_400_000;
     const createdAt = Date.UTC(2026, 9, 4, 8);
-    const grant = { days: 12, createdAt };
+    const grant = { expiresAt: createdAt + 12 * day };
     expect(activationCodeExpiry(grant, createdAt).remainingDays).toBe(12);
     expect(activationCodeExpiry(grant, createdAt + day).remainingDays).toBe(11);
     expect(activationCodeExpiry(grant, createdAt + 12 * day - 1).remainingDays).toBe(1);
@@ -50,12 +53,12 @@ describe('activation codes', () => {
       remainingDays: 0,
       expired: true,
     });
-    expect(activationCodeExpiry({ days: 0, createdAt }, createdAt + 365 * day).expired).toBe(false);
+    expect(activationCodeExpiry({ expiresAt: 0 }, createdAt + 365 * day).expired).toBe(false);
   });
 
   it('shows remaining days for an unused code', async () => {
     get.mockResolvedValue(
-      new Msg(true, '', [{ ...code, days: 12, createdAt: Date.now() - 86_400_000 - 1000 }]),
+      new Msg(true, '', [{ ...code, expiresAt: Date.now() + 11 * 86_400_000 - 1000 }]),
     );
     renderWithProviders(<ActivationCodesModal plan={plan} onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText(/11 days remaining/)).toBeTruthy());
@@ -63,9 +66,7 @@ describe('activation codes', () => {
   });
 
   it('marks an expired code and disables copying it as unused', async () => {
-    get.mockResolvedValue(
-      new Msg(true, '', [{ ...code, days: 1, createdAt: Date.now() - 2 * 86_400_000 }]),
-    );
+    get.mockResolvedValue(new Msg(true, '', [{ ...code, expiresAt: Date.now() - 86_400_000 }]));
     renderWithProviders(<ActivationCodesModal plan={plan} onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText('Expired')).toBeTruthy());
     expect(screen.getByRole('button', { name: 'Copy unused codes' }).hasAttribute('disabled')).toBe(
@@ -87,28 +88,63 @@ describe('activation codes', () => {
     await waitFor(() => expect(screen.getByText(code.code)).toBeTruthy());
     expect(post).toHaveBeenCalledWith(
       '/panel/api/plans/codes/add',
-      { planId: 2, count: 1, totalGB: 10 * 1024 ** 3, days: 30, resetDay: 22, note: '' },
+      { planId: 2, count: 1, totalGB: 10 * 1024 ** 3, months: 1, days: 0, resetDay: 22, note: '' },
       expect.anything(),
     );
   });
 
-  // A plan sold by terms gets codes for one of those terms only, the shortest offered first.
+  // A plan sold by terms gets codes for one of its months only, the shortest offered first.
   it('offers only the terms of a plan sold by them', async () => {
     get.mockResolvedValue(new Msg(true, '', []));
     post.mockResolvedValue(new Msg(true, '', [code]));
     renderWithProviders(
-      <ActivationCodesModal plan={{ ...plan, termDays: [90, 365] }} onClose={() => {}} />,
+      <ActivationCodesModal plan={{ ...plan, termMonths: [3, 12] }} onClose={() => {}} />,
     );
-    const days = screen.getByLabelText('Validity in days').id;
-    const shown = document.getElementById(days)?.closest('.ant-select');
-    expect(shown?.querySelector('.ant-select-content')?.textContent).toBe('季付（90 天）');
-    expect(listSelectOptions(days)).toEqual(['季付（90 天）', '年付（365 天）']);
-    chooseSelectOption(days, '年付（365 天）');
+    const term = screen.getByLabelText('Validity').id;
+    const shown = document.getElementById(term)?.closest('.ant-select');
+    expect(shown?.querySelector('.ant-select-content')?.textContent).toBe('季付（3 个月）');
+    expect(listSelectOptions(term)).toEqual(['季付（3 个月）', '年付（12 个月）']);
+    chooseSelectOption(term, '年付（12 个月）');
     fireEvent.click(screen.getByRole('button', { name: 'Create codes' }));
     await waitFor(() =>
       expect(post).toHaveBeenCalledWith(
         '/panel/api/plans/codes/add',
-        expect.objectContaining({ planId: 2, days: 365 }),
+        expect.objectContaining({ planId: 2, months: 12, days: 0 }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  // Months stop at 1,200, so days typed first are brought within it when months are picked.
+  it('keeps the validity within the months limit when switching to months', async () => {
+    get.mockResolvedValue(new Msg(true, '', []));
+    post.mockResolvedValue(new Msg(true, '', [code]));
+    renderWithProviders(<ActivationCodesModal plan={plan} onClose={() => {}} />);
+    chooseSelectOption('activation-code-unit', 'days');
+    fireEvent.change(screen.getByLabelText('Validity'), { target: { value: '3650' } });
+    chooseSelectOption('activation-code-unit', 'months');
+    fireEvent.click(screen.getByRole('button', { name: 'Create codes' }));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        '/panel/api/plans/codes/add',
+        expect.objectContaining({ months: 1200, days: 0 }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  // Without terms a code can still last plain days, as the odd-length ones always have.
+  it('makes a code for days when days are picked', async () => {
+    get.mockResolvedValue(new Msg(true, '', []));
+    post.mockResolvedValue(new Msg(true, '', [code]));
+    renderWithProviders(<ActivationCodesModal plan={plan} onClose={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Validity'), { target: { value: '20' } });
+    chooseSelectOption('activation-code-unit', 'days');
+    fireEvent.click(screen.getByRole('button', { name: 'Create codes' }));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        '/panel/api/plans/codes/add',
+        expect.objectContaining({ planId: 2, months: 0, days: 20 }),
         expect.anything(),
       ),
     );

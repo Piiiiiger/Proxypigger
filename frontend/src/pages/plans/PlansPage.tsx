@@ -267,7 +267,7 @@ export default function PlansPage() {
               {ipLimitOf(plan)}
             </PlanRow>
             <PlanRow icon={<CalendarOutlined />} label="计费周期">
-              {termsText(plan.termDays)}
+              {termsText(plan.termMonths)}
             </PlanRow>
             <PlanRow icon={<ClusterOutlined />} label={t('pages.plans.servers')}>
               {nodesOf(plan)}
@@ -300,7 +300,7 @@ export default function PlansPage() {
             key: 'ip',
             render: (_, plan) => ipLimitOf(plan),
           },
-          { title: '计费周期', key: 'terms', render: (_, plan) => termsText(plan.termDays) },
+          { title: '计费周期', key: 'terms', render: (_, plan) => termsText(plan.termMonths) },
           { title: t('pages.plans.servers'), key: 'nodes', render: (_, plan) => nodesOf(plan) },
           { title: t('pages.plans.people'), key: 'users', render: (_, plan) => membersOf(plan) },
           {
