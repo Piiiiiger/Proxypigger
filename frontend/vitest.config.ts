@@ -37,6 +37,9 @@ export default defineConfig({
           include: ['src/test/**/*.test.tsx'],
           environment: 'jsdom',
           setupFiles: ['./src/test/setup.ts', './src/test/setup.components.ts'],
+          // jsdom takes seconds over the larger antd forms (4.3 s for the slowest on a busy
+          // server, more beside the browser project): vitest's 5 s default left them no room.
+          testTimeout: 20_000,
         },
       },
       {
