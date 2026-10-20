@@ -1,4 +1,4 @@
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeAll, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
@@ -79,6 +79,14 @@ if (!i18next.isInitialized) {
     returnNull: false,
   });
 }
+
+// antd's static message renders into its own React root, which cleanup() never unmounts,
+// and counts each toast down on animation frames: one left counting can wake React after teardown.
+beforeAll(async () => {
+  const { ConfigProvider, message } = await import('antd');
+  ConfigProvider?.config({ theme: { token: { motion: false } } });
+  message?.config({ duration: 0 });
+});
 
 afterEach(async () => {
   cleanup();
