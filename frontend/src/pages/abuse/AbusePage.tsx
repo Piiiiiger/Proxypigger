@@ -111,12 +111,13 @@ const RULES: { action: RuleAction; title: string; hint?: string; fields: [Thresh
     {
       action: 'register',
       title: '批量注册（AI / Google / 微软账号）',
-      hint: '按分钟计：某分钟里连过平台的登录/注册服务器（auth.openai.com、accounts.google.com、signup.live.com）就算 1 分钟，超过上限记一次。看不出是登录还是注册、注册了几个账号；Google 在浏览器和手机后台也常连，所以上限宽、默认不按天算。',
+      hint: '按分钟计：某分钟里连过平台的登录/注册服务器（auth.openai.com、accounts.google.com、signup.live.com）就算 1 分钟。OpenAI、微软超过上限就记一次；Google 在浏览器和手机后台也常连，要一天内有几个小时超限，或一小时超过上限的 1.5 倍才记，只超一小时记为「可疑」（不提醒用户、不计违规）。当天用过接码、临时邮箱或打码网站时，超过每小时上限的一半就记一次。看不出注册了几个账号。',
       fields: [
         ['openaiAuthMinPerHour', 'OpenAI 每小时分钟数'],
         ['openaiAuthMinPerDay', 'OpenAI 每天分钟数'],
         ['googleAuthMinPerHour', 'Google 每小时分钟数'],
         ['googleAuthMinPerDay', 'Google 每天分钟数'],
+        ['googleAuthHours', 'Google 超限小时数（一天内）'],
         ['microsoftSignupMinPerHour', '微软每小时分钟数'],
         ['microsoftSignupMinPerDay', '微软每天分钟数'],
       ],
@@ -132,9 +133,13 @@ const OUTCOME_COLORS: Record<string, string> = {
   blocked: 'red',
 };
 
-// thresholdMax is the schema's own bound, so the input stops where saving would fail.
+// The schema's own bounds, so the input stops where saving would fail.
 function thresholdMax(name: Threshold): number | undefined {
   return AbuseSettingsFormSchema.shape.rules.shape[name].maxValue ?? undefined;
+}
+
+function thresholdMin(name: Threshold): number {
+  return AbuseSettingsFormSchema.shape.rules.shape[name].minValue ?? 0;
 }
 
 function RulesCard({
@@ -181,7 +186,7 @@ function RulesCard({
             className="abuse-rules-note"
             type="info"
             showIcon
-            title="阈值对所有开启检测的服务器生效，0 表示关闭该项。「处理」只在设为「封禁」模式的服务器上生效；「观察」模式的服务器一律只记录。"
+            title="阈值对所有开启检测的服务器生效，0 表示关闭该项（小时数除外）。「处理」只在设为「封禁」模式的服务器上生效；「观察」模式的服务器一律只记录。"
           />
           {RULES.map((rule) => (
             <SettingListItem
@@ -196,7 +201,11 @@ function RulesCard({
                 </FormField>
                 {rule.fields.map(([name, label]) => (
                   <FormField key={name} name={`rules.${name}`} label={label}>
-                    <InputNumber min={0} max={thresholdMax(name)} style={{ width: '100%' }} />
+                    <InputNumber
+                      min={thresholdMin(name)}
+                      max={thresholdMax(name)}
+                      style={{ width: '100%' }}
+                    />
                   </FormField>
                 ))}
               </div>

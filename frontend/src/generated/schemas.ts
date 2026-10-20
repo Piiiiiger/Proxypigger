@@ -125,6 +125,11 @@ export const SCHEMAS: Record<string, unknown> = {
         "format": "int64",
         "type": "integer"
       },
+      "bytes": {
+        "example": 2500000000,
+        "format": "int64",
+        "type": "integer"
+      },
       "count": {
         "example": 52,
         "format": "int64",
@@ -171,6 +176,7 @@ export const SCHEMAS: Record<string, unknown> = {
     "required": [
       "action",
       "at",
+      "bytes",
       "count",
       "email",
       "id",
@@ -193,6 +199,11 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "at": {
         "example": 1791172800,
+        "format": "int64",
+        "type": "integer"
+      },
+      "bytes": {
+        "example": 2500000000,
         "format": "int64",
         "type": "integer"
       },
@@ -254,6 +265,7 @@ export const SCHEMAS: Record<string, unknown> = {
     "required": [
       "action",
       "at",
+      "bytes",
       "count",
       "email",
       "evidence",
@@ -7271,6 +7283,10 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": 120,
         "type": "integer"
       },
+      "googleAuthHours": {
+        "example": 3,
+        "type": "integer"
+      },
       "googleAuthMinPerDay": {
         "example": 0,
         "type": "integer"
@@ -7344,6 +7360,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "fullSpeedMbps",
       "fullSpeedStrikeMin",
       "fullSpeedWarnMin",
+      "googleAuthHours",
       "googleAuthMinPerDay",
       "googleAuthMinPerHour",
       "microsoftSignupMinPerDay",

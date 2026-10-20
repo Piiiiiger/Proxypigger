@@ -68,6 +68,7 @@ export type AbuseActions = z.infer<typeof AbuseActionsSchema>;
 export const AbuseEventSchema = z.object({
   action: z.string(),
   at: z.number().int(),
+  bytes: z.number().int(),
   count: z.number().int(),
   email: z.string(),
   id: z.number().int(),
@@ -84,6 +85,7 @@ export type AbuseEvent = z.infer<typeof AbuseEventSchema>;
 export const AbuseEventViewSchema = z.object({
   action: z.string(),
   at: z.number().int(),
+  bytes: z.number().int(),
   count: z.number().int(),
   email: z.string(),
   evidence: z.string(),
@@ -1749,6 +1751,7 @@ export const RulesSchema = z.object({
   fullSpeedMbps: z.number().int(),
   fullSpeedStrikeMin: z.number().int(),
   fullSpeedWarnMin: z.number().int(),
+  googleAuthHours: z.number().int(),
   googleAuthMinPerDay: z.number().int(),
   googleAuthMinPerHour: z.number().int(),
   microsoftSignupMinPerDay: z.number().int(),

@@ -222,6 +222,32 @@ func TestAbuseBulkSignUpsOnlyRecordUntilTheirActionIsChanged(t *testing.T) {
 	}
 }
 
+// A suspect bulk sign-up is the admin's to judge: whatever the rule is set to, it
+// never bans the account or warns the person.
+func TestAbuseSuspectSignUpsNeverBanOrWarn(t *testing.T) {
+	s := setupAbuse(t, AbuseModeEnforce)
+	hit := abuse.Signal{
+		Email: "alice", Rule: abuse.RuleRegister, Level: abuse.LevelSuspect, Measure: abuse.MeasureRegisterHour,
+		Count: 35, Limit: 30, Window: 3600, Samples: []string{abuse.PlatformGoogle},
+	}
+	for _, act := range []string{AbuseActWarn, AbuseActBan} {
+		settings := s.Settings()
+		settings.Actions.Register = act
+		if err := s.SetSettings(settings); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.HandleSignals(0, []abuse.Signal{hit}, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		if got := lastAction(t); got != AbuseActionNoticed {
+			t.Errorf("set to %s, a suspect bulk sign-up was %s, want only noticed", act, got)
+		}
+	}
+	if recs := banRecords(t); len(recs) != 0 {
+		t.Fatalf("records = %+v, want none", recs)
+	}
+}
+
 // An action the policy cannot take is refused, and the stored ones stay.
 func TestAbuseSettingsRefuseAnActionThatCannotBeTaken(t *testing.T) {
 	s := setupAbuse(t, AbuseModeEnforce)

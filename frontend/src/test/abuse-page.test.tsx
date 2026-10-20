@@ -42,6 +42,7 @@ const settings = {
     openaiAuthMinPerDay: 30,
     googleAuthMinPerHour: 30,
     googleAuthMinPerDay: 0,
+    googleAuthHours: 3,
     microsoftSignupMinPerHour: 10,
     microsoftSignupMinPerDay: 20,
   },
@@ -91,6 +92,7 @@ const overview = {
       limit: 50,
       window: 300,
       samples: '["198.51.100.7","198.51.100.8"]',
+      bytes: 0,
       action: 'banned',
       at: nowSec - 60,
       server: 'de-fra-1',
@@ -212,6 +214,9 @@ it('saves the bulk sign-up limit of each platform', async () => {
   fireEvent.change(within(register).getByLabelText('Google 每小时分钟数'), {
     target: { value: '40' },
   });
+  fireEvent.change(within(register).getByLabelText('Google 超限小时数（一天内）'), {
+    target: { value: '2' },
+  });
   chooseIn(within(register).getByLabelText('处理'), '提醒用户');
   fireEvent.click(saveButton());
 
@@ -219,7 +224,7 @@ it('saves the bulk sign-up limit of each platform', async () => {
   expect(lastPost()).toEqual({
     url: '/panel/api/abuse/settings',
     body: {
-      rules: { ...settings.rules, googleAuthMinPerHour: 40 },
+      rules: { ...settings.rules, googleAuthMinPerHour: 40, googleAuthHours: 2 },
       actions: { ...settings.actions, register: 'warn' },
       signup: { limit: 3, action: 'record' },
     },

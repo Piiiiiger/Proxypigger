@@ -241,6 +241,92 @@ func TestRegisterDailyLimitOutlastsQuietHours(t *testing.T) {
 	}
 }
 
+// busyCollecting connects to host each minute from at and collects after each, as
+// a server sees it, then keeps collecting quietly until the hour is over.
+func busyCollecting(d *Detector, at time.Time, minutes int, email, host string) []Signal {
+	var out []Signal
+	for i := range 60 {
+		if i < minutes {
+			connect(d, at.Add(time.Duration(i)*time.Minute), email, host, 443, "direct")
+		}
+		out = append(out, d.Collect(at.Add(time.Duration(i)*time.Minute+30*time.Second))...)
+	}
+	return out
+}
+
+func registerAt(signals []Signal, level string) []Signal {
+	var out []Signal
+	for _, s := range signals {
+		if s.Rule == RuleRegister && s.Level == level {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// A heavy evening at Google's sign-in server (a real one ran 31 and 35 minutes an
+// hour) is only suspect, once an hour, with the hour's traffic to judge it by.
+func TestRegisterGoogleOneBusyHourIsOnlySuspect(t *testing.T) {
+	d := NewDetector(DefaultRules())
+	d.ObserveTraffic("alice", 9_000_000_000, t0.Add(-2*time.Hour))
+	d.ObserveTraffic("alice", 2_500_000_000, t0.Add(20*time.Minute))
+	s := only(t, busyCollecting(d, t0, 35, "alice", "accounts.google.com"), RuleRegister)
+	if s.Level != LevelSuspect || s.Measure != MeasureRegisterHour || s.Count != 31 || s.Limit != 30 || s.Bytes != 2_500_000_000 {
+		t.Errorf("register signal = %+v, want a suspect 31 of 30 minutes with the hour's 2.5 GB", s)
+	}
+}
+
+// Over the limit for three separate hours in a day is no evening's browsing; an
+// hour at exactly the limit is not over it.
+func TestRegisterGoogleStrikesWhenItLastsHours(t *testing.T) {
+	d := NewDetector(DefaultRules())
+	for i, minutes := range []int{40, 30, 40} {
+		got := busyCollecting(d, t0.Add(time.Duration(i)*5*time.Hour), minutes, "alice", "accounts.google.com")
+		if strikes := registerAt(got, LevelStrike); len(strikes) != 0 {
+			t.Fatalf("hour %d (%d minutes) gave strikes %+v, want none", i+1, minutes, strikes)
+		}
+	}
+	s := only(t, busyCollecting(d, t0.Add(15*time.Hour), 40, "alice", "accounts.google.com"), RuleRegister)
+	if s.Level != LevelStrike || s.Measure != MeasureRegisterHours || s.Count != 3 || s.Limit != 30 || s.Window != 24*3600 {
+		t.Errorf("the third hour over gave %+v, want only a strike: 3 hours over 30 minutes", s)
+	}
+}
+
+// A bot running profiles side by side fills nearly every minute: no need to wait
+// hours, and the suspect hit on the way there stays on record beside the strike.
+func TestRegisterGoogleNearlyNonstopStrikesAtOnce(t *testing.T) {
+	d := NewDetector(DefaultRules())
+	got := busyCollecting(d, t0, 46, "alice", "accounts.google.com")
+	strikes, suspects := registerAt(got, LevelStrike), registerAt(got, LevelSuspect)
+	if len(strikes) != 1 || strikes[0].Measure != MeasureRegisterBurst || strikes[0].Count != 46 || strikes[0].Limit != 45 {
+		t.Errorf("46 busy minutes gave strikes %+v, want one for 46 of 45 minutes", strikes)
+	}
+	if len(suspects) != 1 || suspects[0].Count != 31 {
+		t.Errorf("46 busy minutes gave suspects %+v, want the one at 31 minutes", suspects)
+	}
+}
+
+// An SMS-code, temp-mail or captcha site that day halves the limit and is named; a
+// day old it is nothing, and neither is an anti-detect browser or a look-alike name.
+func TestRegisterHelperSitesLowerTheLimit(t *testing.T) {
+	d := NewDetector(DefaultRules())
+	connect(d, t0, "bob", "api.5sim.net", 443, "direct")
+	connect(d, t0.Add(time.Minute), "bob", "api.capsolver.com", 443, "direct")
+	connect(d, t0, "dave", "www.yopmail.com", 443, "direct")
+	connect(d, t0, "erin", "check.adspower.com", 443, "direct")
+	connect(d, t0, "erin", "fakemail.tm", 443, "direct")
+	var got []Signal
+	for _, email := range []string{"alice", "bob", "erin"} {
+		got = append(got, busyCollecting(d, t0.Add(3*time.Hour), 16, email, "accounts.google.com")...)
+	}
+	s := only(t, got, RuleRegister)
+	if s.Email != "bob" || s.Level != LevelStrike || s.Measure != MeasureRegisterHelped || s.Count != 16 || s.Limit != 15 ||
+		fmt.Sprint(s.Samples) != "[accounts.google.com 5sim.net capsolver.com]" {
+		t.Errorf("register signal = %+v, want bob's 16 minutes over 15 with 5sim.net and capsolver.com", s)
+	}
+	none(t, busyCollecting(d, t0.Add(25*time.Hour), 16, "dave", "accounts.google.com"), RuleRegister)
+}
+
 // fullSpeed feeds traffic at mbps in 5-second reports, collecting as a server does.
 func fullSpeed(d *Detector, from time.Time, minutes int, mbps int64) []Signal {
 	var out []Signal

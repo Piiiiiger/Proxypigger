@@ -59,8 +59,9 @@ func IsChainSocksHop(tag string) bool {
 // Levels say how far a hit went: a strike is a full hit, a warning the first
 // stage of one, which never costs a strike whatever the rule is set to do.
 const (
-	LevelStrike = "strike"
-	LevelWarn   = "warn"
+	LevelStrike  = "strike"
+	LevelWarn    = "warn"
+	LevelSuspect = "suspect"
 )
 
 // Measures name what a signal's Count counted, so a message can say it.
@@ -76,8 +77,11 @@ const (
 	MeasureTestsDay  = "tests-day"
 	MeasureMinutes   = "minutes"
 
-	MeasureRegisterHour = "register-hour"
-	MeasureRegisterDay  = "register-day"
+	MeasureRegisterHour   = "register-hour"
+	MeasureRegisterDay    = "register-day"
+	MeasureRegisterHours  = "register-hours"
+	MeasureRegisterBurst  = "register-burst"
+	MeasureRegisterHelped = "register-helped"
 )
 
 // The platforms whose bulk sign-ups are watched, each named by the server it
@@ -89,6 +93,38 @@ const (
 )
 
 var platforms = []string{PlatformOpenAI, PlatformGoogle, PlatformMicrosoft}
+
+// helperSites are SMS-code, temp-mail and captcha-solving services, which bulk
+// sign-ups lean on; anti-detect browsers are left out, as ordinary users run them.
+var helperSites = map[string]bool{
+	"sms-activate.org": true, "sms-activate.io": true, "hero-sms.com": true, "5sim.net": true,
+	"smspva.com": true, "onlinesim.io": true, "onlinesim.ru": true, "grizzlysms.com": true,
+	"sms-man.com": true, "smshub.org": true, "tiger-sms.com": true, "vak-sms.com": true,
+	"smspool.net": true, "daisysms.com": true, "textverified.com": true, "receive-smss.com": true,
+	"sms24.me": true, "quackr.io": true,
+	"temp-mail.org": true, "temp-mail.io": true, "tempmail.lol": true, "tempmail.plus": true,
+	"mail.tm": true, "mail.gw": true, "1secmail.com": true, "guerrillamail.com": true,
+	"sharklasers.com": true, "mailinator.com": true, "10minutemail.com": true, "yopmail.com": true,
+	"maildrop.cc": true, "dropmail.me": true, "emailnator.com": true, "mohmal.com": true,
+	"linshiyouxiang.net": true, "22.do": true, "bccto.me": true,
+	"2captcha.com": true, "rucaptcha.com": true, "anti-captcha.com": true, "capsolver.com": true,
+	"capmonster.cloud": true, "yescaptcha.com": true, "nopecha.com": true, "deathbycaptcha.com": true,
+	"ez-captcha.com": true, "cap.guru": true, "chaojiying.com": true, "chaojiying.net": true, "jfbym.com": true,
+}
+
+// helperSite names the helper service host belongs to, or "" for any other host.
+func helperSite(host string) string {
+	for h := host; ; {
+		if helperSites[h] {
+			return h
+		}
+		_, rest, ok := strings.Cut(h, ".")
+		if !ok || !strings.Contains(rest, ".") {
+			return ""
+		}
+		h = rest
+	}
+}
 
 // signInServers maps every sign-in or sign-up server to its platform.
 var signInServers = map[string]string{
@@ -108,6 +144,7 @@ type Signal struct {
 	Limit   int64    `json:"limit"`
 	Window  int      `json:"window"`
 	Samples []string `json:"samples,omitempty"`
+	Bytes   int64    `json:"bytes,omitempty"`
 	At      int64    `json:"at"`
 }
 
@@ -147,20 +184,21 @@ type Rules struct {
 	GoogleAuthMinPerDay       int `json:"googleAuthMinPerDay" example:"0"`
 	MicrosoftSignupMinPerHour int `json:"microsoftSignupMinPerHour" example:"10"`
 	MicrosoftSignupMinPerDay  int `json:"microsoftSignupMinPerDay" example:"20"`
+	GoogleAuthHours           int `json:"googleAuthHours" example:"3"`
 }
 
 // registerLimits are how many minutes at platform's sign-in server an hour and
-// a day may hold before they look like bulk sign-ups.
-func (r Rules) registerLimits(platform string) (perHour, perDay int) {
+// a day may hold, and in how many clock hours of a day the hourly limit must break.
+func (r Rules) registerLimits(platform string) (perHour, perDay, hours int) {
 	switch platform {
 	case PlatformOpenAI:
-		return r.OpenAIAuthMinPerHour, r.OpenAIAuthMinPerDay
+		return r.OpenAIAuthMinPerHour, r.OpenAIAuthMinPerDay, 1
 	case PlatformGoogle:
-		return r.GoogleAuthMinPerHour, r.GoogleAuthMinPerDay
+		return r.GoogleAuthMinPerHour, r.GoogleAuthMinPerDay, max(1, r.GoogleAuthHours)
 	case PlatformMicrosoft:
-		return r.MicrosoftSignupMinPerHour, r.MicrosoftSignupMinPerDay
+		return r.MicrosoftSignupMinPerHour, r.MicrosoftSignupMinPerDay, 1
 	}
-	return 0, 0
+	return 0, 0, 0
 }
 
 // DefaultRules are the starting thresholds: a week of observing on real traffic
@@ -174,7 +212,7 @@ func DefaultRules() Rules {
 		CrawlerConns: 4000, CrawlerHosts: 600, CrawlerWindowMin: 10, CrawlerWindows: 2,
 		SpeedTestsPerHour: 5, SpeedTestsPerDay: 15, SpeedTestGapMin: 3,
 		FullSpeedMbps: 100, FullSpeedWarnMin: 120, FullSpeedStrikeMin: 240,
-		OpenAIAuthMinPerHour: 10, OpenAIAuthMinPerDay: 30, GoogleAuthMinPerHour: 30,
+		OpenAIAuthMinPerHour: 10, OpenAIAuthMinPerDay: 30, GoogleAuthMinPerHour: 30, GoogleAuthHours: 3,
 		MicrosoftSignupMinPerHour: 10, MicrosoftSignupMinPerDay: 20,
 	}
 }

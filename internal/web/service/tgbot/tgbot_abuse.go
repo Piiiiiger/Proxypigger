@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -185,25 +186,26 @@ func digestText(events []model.AbuseEvent, end time.Time) string {
 		email string
 		n     int
 	}
-	var rules []string
-	byRule := map[string][]tally{}
+	var labels []string
+	byLabel := map[string][]tally{}
 	for _, e := range events {
-		list := byRule[e.Rule]
+		label := service.AbuseEventLabel(e)
+		list := byLabel[label]
 		if len(list) == 0 {
-			rules = append(rules, e.Rule)
+			labels = append(labels, label)
 		}
-		if n := len(list); n > 0 && list[n-1].email == e.Email {
-			list[n-1].n++
+		if i := slices.IndexFunc(list, func(c tally) bool { return c.email == e.Email }); i >= 0 {
+			list[i].n++
 		} else {
 			list = append(list, tally{e.Email, 1})
 		}
-		byRule[e.Rule] = list
+		byLabel[label] = list
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "📋 <b>防滥用日报</b>\n%s 至 %s，只记录、未处罚的检测：\n",
 		end.Add(-24*time.Hour).Format("01-02 15:04"), end.Format("01-02 15:04"))
-	for _, rule := range rules {
-		list := byRule[rule]
+	for _, label := range labels {
+		list := byLabel[label]
 		sort.SliceStable(list, func(i, j int) bool { return list[i].n > list[j].n })
 		var parts []string
 		for i, c := range list {
@@ -213,7 +215,7 @@ func digestText(events []model.AbuseEvent, end time.Time) string {
 			}
 			parts = append(parts, fmt.Sprintf("%s %d 次", esc(c.email), c.n))
 		}
-		fmt.Fprintf(&b, "\n• %s：%s", service.AbuseRuleLabel(rule), strings.Join(parts, "、"))
+		fmt.Fprintf(&b, "\n• %s：%s", label, strings.Join(parts, "、"))
 	}
 	fmt.Fprintf(&b, "\n\n共 %d 条，详情见面板「防滥用」页面。", len(events))
 	return b.String()

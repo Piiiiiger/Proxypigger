@@ -42,6 +42,7 @@ export interface AbuseActions {
 export interface AbuseEvent {
   action: string;
   at: number;
+  bytes: number;
   count: number;
   email: string;
   id: number;
@@ -57,6 +58,7 @@ export interface AbuseEvent {
 export interface AbuseEventView {
   action: string;
   at: number;
+  bytes: number;
   count: number;
   email: string;
   evidence: string;
@@ -1613,6 +1615,7 @@ export interface Rules {
   fullSpeedMbps: number;
   fullSpeedStrikeMin: number;
   fullSpeedWarnMin: number;
+  googleAuthHours: number;
   googleAuthMinPerDay: number;
   googleAuthMinPerHour: number;
   microsoftSignupMinPerDay: number;

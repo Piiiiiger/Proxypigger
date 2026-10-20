@@ -72,10 +72,16 @@ on to the next server, which checks the real destinations itself.
   sign-up server is watched: `auth.openai.com` (ChatGPT), `accounts.google.com`
   (Google, Gemini included) and `signup.live.com` (Microsoft). The rule counts the
   minutes of an hour, and of a day, in which an account connected to one of them:
-  a person signs in for a minute or two, while bulk sign-ups keep at it. It cannot
-  tell a login from a sign-up or count the accounts made, and Google's server also
-  gets browsers' background checks, so its limit is wide. The rule only records
-  until you change its action, even on enforcing servers.
+  a person signs in for a minute or two, while bulk sign-ups keep at it. OpenAI and
+  Microsoft count once over their limit. Google's server also gets browsers' and
+  phones' background checks, so one hour over its limit is only *suspect* (listed
+  for the admins, never a strike or a warning); it counts when the limit breaks in
+  several hours of a day (default 3) or by half again in one hour. An SMS-code,
+  temp-mail or captcha-solving site the same day halves any platform's hourly limit
+  and is named in the hit; anti-detect browsers are not counted, as ordinary users
+  run them. Each hit also shows the account's traffic in that hour. The rule cannot
+  tell a login from a sign-up or count the accounts made, and it only records until
+  you change its action, even on enforcing servers.
 - **Sign-ups.** The user page counts sign-ups per network (an IPv4 /24 or an IPv6
   /48) over 24 hours. A network reaching the limit (default 3) is reported to the
   admins with the accounts it made; while the guard bans, it cannot sign up again

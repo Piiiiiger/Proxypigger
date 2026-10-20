@@ -76,6 +76,7 @@ const idleForget = time.Hour
 type bucket struct {
 	minute    int64
 	conns     int64
+	bytes     int64
 	smtp      int64
 	bt        int64
 	ips       map[string]struct{}
@@ -100,12 +101,35 @@ type speedStreak struct {
 // connections to one platform's sign-in server, oldest first.
 type busyMinutes []int64
 
+// after counts the busy minutes later than minute.
+func (b busyMinutes) after(minute int64) int64 {
+	return int64(len(b) - sort.Search(len(b), func(i int) bool { return b[i] > minute }))
+}
+
+// hoursOver counts the clock hours holding more than limit busy minutes.
+func (b busyMinutes) hoursOver(limit int) int64 {
+	var hours, run int64
+	for i, m := range b {
+		if i > 0 && m/60 != b[i-1]/60 {
+			run = 0
+		}
+		if run++; run == int64(limit)+1 {
+			hours++
+		}
+	}
+	return hours
+}
+
+// helperKeep bounds the helper sites an account is remembered by.
+const helperKeep = 8
+
 type account struct {
 	buckets  [ringMinutes]bucket
 	fired    map[string]int64
 	tests    []int64
 	lastTest int64
 	signIns  map[string]busyMinutes
+	helpers  map[string]int64
 	speed    speedStreak
 	lastSeen int64
 }
@@ -131,7 +155,7 @@ func (d *Detector) SetRules(rules Rules) {
 func (d *Detector) account(email string) *account {
 	a := d.accounts[email]
 	if a == nil {
-		a = &account{fired: map[string]int64{}, signIns: map[string]busyMinutes{}}
+		a = &account{fired: map[string]int64{}, signIns: map[string]busyMinutes{}, helpers: map[string]int64{}}
 		d.accounts[email] = a
 	}
 	return a
@@ -161,11 +185,35 @@ func (a *account) window(minute int64, n int) []*bucket {
 
 // ready lets one check fire once per cooldown, so a burst is one signal.
 func (a *account) ready(check string, sec int64, cooldown int) bool {
-	if last, ok := a.fired[check]; ok && sec-last < int64(cooldown) {
+	if a.cooling(check, sec, cooldown) {
 		return false
 	}
 	a.fired[check] = sec
 	return true
+}
+
+func (a *account) cooling(check string, sec int64, cooldown int) bool {
+	last, ok := a.fired[check]
+	return ok && sec-last < int64(cooldown)
+}
+
+// helperSites lists the helper services the account reached in the last day.
+func (a *account) helperSites() []string {
+	sites := make([]string, 0, len(a.helpers))
+	for site := range a.helpers {
+		sites = append(sites, site)
+	}
+	sort.Strings(sites)
+	return sites[:min(3, len(sites))]
+}
+
+// hourBytes is the traffic of the hour ending at minute.
+func (a *account) hourBytes(minute int64) int64 {
+	var n int64
+	for _, b := range a.window(minute, 60) {
+		n += b.bytes
+	}
+	return n
 }
 
 func remember(set map[string]struct{}, key string) map[string]struct{} {
@@ -213,6 +261,11 @@ func (d *Detector) Observe(e Event) {
 			a.signIns[platform] = append(busy, sec/60)
 		}
 	}
+	if site := helperSite(e.Host); site != "" {
+		if _, ok := a.helpers[site]; ok || len(a.helpers) < helperKeep {
+			a.helpers[site] = sec / 60
+		}
+	}
 	dest := net.JoinHostPort(e.Host, strconv.Itoa(e.Port))
 	if b.dests == nil {
 		b.dests = map[string]int64{}
@@ -249,6 +302,7 @@ func (d *Detector) ObserveTraffic(email string, bytes int64, at time.Time) {
 	a := d.account(email)
 	sec := at.Unix()
 	a.lastSeen = max(a.lastSeen, sec)
+	a.bucket(sec / 60).bytes += bytes
 	s := &a.speed
 	if block := sec / 300; block != s.block {
 		full := int64(d.rules.FullSpeedMbps) * 1_000_000 / 8 * 300
@@ -292,7 +346,12 @@ func (d *Detector) Collect(now time.Time) []Signal {
 				a.signIns[platform] = busy
 			}
 		}
-		if sec-a.lastSeen > int64(idleForget/time.Second) && len(a.tests) == 0 && len(a.signIns) == 0 && a.speed.blocks == 0 {
+		for site, minute := range a.helpers {
+			if minute <= day/60 {
+				delete(a.helpers, site)
+			}
+		}
+		if sec-a.lastSeen > int64(idleForget/time.Second) && len(a.tests) == 0 && len(a.signIns) == 0 && len(a.helpers) == 0 && a.speed.blocks == 0 {
 			delete(d.accounts, email)
 			continue
 		}
@@ -456,32 +515,47 @@ func (d *Detector) checkScan(a *account, sec int64) (Signal, bool) {
 	return s, true
 }
 
-// checkRegister counts each platform's busy minutes: a person signs in for a
-// minute or two now and then, while bulk sign-ups keep at it.
+// registerSuspect cools a platform's suspect hits apart from its strikes, so a
+// strike later in the same hour still fires.
+const registerSuspect = "register-suspect"
+
+// checkRegister counts each platform's busy minutes. Going over the hourly limit
+// strikes unless the platform needs it held for hours; until then it is suspect.
 func (d *Detector) checkRegister(a *account, sec int64) []Signal {
+	if len(a.signIns) == 0 {
+		return nil
+	}
+	minute := sec / 60
+	helpers := a.helperSites()
 	var out []Signal
 	for _, platform := range platforms {
 		busy := a.signIns[platform]
 		if len(busy) == 0 {
 			continue
 		}
-		perHour, perDay := d.rules.registerLimits(platform)
-		var hour int64
-		for _, m := range busy {
-			if m > sec/60-60 {
-				hour++
-			}
-		}
-		day := int64(len(busy))
-		s := Signal{Rule: RuleRegister, Level: LevelStrike, Samples: []string{platform}}
+		perHour, perDay, hours := d.rules.registerLimits(platform)
+		hour := busy.after(minute - 60)
+		over := perHour > 0 && hour > int64(perHour)
+		hourly := MeasureRegisterHour + ":" + platform
+		s := Signal{Rule: RuleRegister, Level: LevelStrike, Count: hour, Limit: int64(perHour), Window: 3600}
 		switch {
-		case perHour > 0 && hour > int64(perHour) && a.ready(MeasureRegisterHour+":"+platform, sec, 3600):
-			s.Measure, s.Count, s.Limit, s.Window = MeasureRegisterHour, hour, int64(perHour), 3600
-		case perDay > 0 && day > int64(perDay) && a.ready(MeasureRegisterDay+":"+platform, sec, 24*3600):
-			s.Measure, s.Count, s.Limit, s.Window = MeasureRegisterDay, day, int64(perDay), 24*3600
+		case perHour > 0 && len(helpers) > 0 && hour > int64(perHour/2) && a.ready(hourly, sec, 3600):
+			s.Measure, s.Limit = MeasureRegisterHelped, int64(perHour/2)
+		case over && hours <= 1 && a.ready(hourly, sec, 3600):
+			s.Measure = MeasureRegisterHour
+		case perHour > 0 && hour > int64(perHour*3/2) && a.ready(hourly, sec, 3600):
+			s.Measure, s.Limit = MeasureRegisterBurst, int64(perHour*3/2)
+		case over && busy.hoursOver(perHour) >= int64(hours) && a.ready(hourly, sec, 3600):
+			s.Measure, s.Count, s.Window = MeasureRegisterHours, busy.hoursOver(perHour), 24*3600
+		case perDay > 0 && len(busy) > perDay && a.ready(MeasureRegisterDay+":"+platform, sec, 24*3600):
+			s.Measure, s.Count, s.Limit, s.Window = MeasureRegisterDay, int64(len(busy)), int64(perDay), 24*3600
+		case over && !a.cooling(hourly, sec, 3600) && a.ready(registerSuspect+":"+platform, sec, 3600):
+			s.Level, s.Measure = LevelSuspect, MeasureRegisterHour
 		default:
 			continue
 		}
+		s.Samples = append([]string{platform}, helpers...)
+		s.Bytes = a.hourBytes(minute)
 		out = append(out, s)
 	}
 	return out

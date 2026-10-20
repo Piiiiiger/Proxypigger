@@ -82,7 +82,7 @@ func (s *AbuseService) Overview(now time.Time) (*AbuseOverview, error) {
 		if e.Rule == AbuseRuleSignup {
 			server = "用户页面"
 		}
-		out.Events = append(out.Events, AbuseEventView{AbuseEvent: e, Server: server, Label: AbuseRuleLabel(e.Rule), Evidence: AbuseEvidence(e)})
+		out.Events = append(out.Events, AbuseEventView{AbuseEvent: e, Server: server, Label: AbuseEventLabel(e), Evidence: AbuseEvidence(e)})
 	}
 	return out, nil
 }

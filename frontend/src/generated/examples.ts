@@ -28,6 +28,7 @@ export const EXAMPLES: Record<string, unknown> = {
   "AbuseEvent": {
     "action": "banned",
     "at": 1791172800,
+    "bytes": 2500000000,
     "count": 52,
     "email": "alice",
     "id": 7,
@@ -42,6 +43,7 @@ export const EXAMPLES: Record<string, unknown> = {
   "AbuseEventView": {
     "action": "banned",
     "at": 1791172800,
+    "bytes": 2500000000,
     "count": 52,
     "email": "alice",
     "evidence": "5 分钟内连接同一 IP 的 52 个端口",
@@ -117,6 +119,7 @@ export const EXAMPLES: Record<string, unknown> = {
       {
         "action": "banned",
         "at": 1791172800,
+        "bytes": 2500000000,
         "count": 52,
         "email": "alice",
         "evidence": "5 分钟内连接同一 IP 的 52 个端口",
@@ -163,6 +166,7 @@ export const EXAMPLES: Record<string, unknown> = {
         "fullSpeedMbps": 100,
         "fullSpeedStrikeMin": 240,
         "fullSpeedWarnMin": 120,
+        "googleAuthHours": 3,
         "googleAuthMinPerDay": 0,
         "googleAuthMinPerHour": 30,
         "microsoftSignupMinPerDay": 20,
@@ -214,6 +218,7 @@ export const EXAMPLES: Record<string, unknown> = {
       "fullSpeedMbps": 100,
       "fullSpeedStrikeMin": 240,
       "fullSpeedWarnMin": 120,
+      "googleAuthHours": 3,
       "googleAuthMinPerDay": 0,
       "googleAuthMinPerHour": 30,
       "microsoftSignupMinPerDay": 20,
@@ -2266,6 +2271,7 @@ export const EXAMPLES: Record<string, unknown> = {
     "fullSpeedMbps": 100,
     "fullSpeedStrikeMin": 240,
     "fullSpeedWarnMin": 120,
+    "googleAuthHours": 3,
     "googleAuthMinPerDay": 0,
     "googleAuthMinPerHour": 30,
     "microsoftSignupMinPerDay": 20,

@@ -112,3 +112,47 @@ func TestAbuseOverviewSaysWhichPlatformABulkSignUpHit(t *testing.T) {
 		t.Errorf("missing hits %v in %+v", want, overview.Events)
 	}
 }
+
+// Each way a bulk sign-up is judged says why, with the hour's traffic when known,
+// and a suspect one is labelled as such.
+func TestAbuseOverviewSaysWhyABulkSignUpWasJudgedSo(t *testing.T) {
+	s := setupAbuse(t, AbuseModeObserve)
+	now := time.Now()
+	hit := func(level, measure string, count, limit int64, window int, samples ...string) abuse.Signal {
+		return abuse.Signal{
+			Email: "alice", Rule: abuse.RuleRegister, Level: level, Measure: measure,
+			Count: count, Limit: limit, Window: window, Samples: append([]string{abuse.PlatformGoogle}, samples...),
+		}
+	}
+	suspect := hit(abuse.LevelSuspect, abuse.MeasureRegisterHour, 35, 30, 3600)
+	suspect.Bytes = 2_500_000_000
+	hits := []abuse.Signal{
+		suspect,
+		hit(abuse.LevelStrike, abuse.MeasureRegisterHours, 3, 30, 24*3600),
+		hit(abuse.LevelStrike, abuse.MeasureRegisterBurst, 46, 45, 3600),
+		hit(abuse.LevelStrike, abuse.MeasureRegisterHelped, 16, 15, 3600, "5sim.net", "capsolver.com"),
+	}
+	if _, err := s.HandleSignals(0, hits, now); err != nil {
+		t.Fatal(err)
+	}
+	overview, err := s.Overview(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const sure, unsure = "批量注册 AI/Google/微软账号", "批量注册 AI/Google/微软账号（可疑）"
+	want := map[string]string{
+		"1 小时内有 35 分钟在连 Google（含 Gemini）的登录/注册服务器，但没持续几个小时，也没用过接码/临时邮箱/打码网站；这 1 小时流量 2.33GB": unsure,
+		"24 小时内有 3 个小时，每小时超过 30 分钟在连 Google（含 Gemini）的登录/注册服务器":                              sure,
+		"1 小时内有 46 分钟在连 Google（含 Gemini）的登录/注册服务器，几乎没停":                                      sure,
+		"1 小时内有 16 分钟在连 Google（含 Gemini）的登录/注册服务器，当天还用过接码/临时邮箱/打码网站 5sim.net、capsolver.com":  sure,
+	}
+	for _, e := range overview.Events {
+		if label, ok := want[e.Evidence]; !ok || e.Label != label {
+			t.Errorf("bulk sign-up hit = %q: %q", e.Label, e.Evidence)
+		}
+		delete(want, e.Evidence)
+	}
+	if len(want) != 0 {
+		t.Errorf("missing hits %v in %+v", want, overview.Events)
+	}
+}

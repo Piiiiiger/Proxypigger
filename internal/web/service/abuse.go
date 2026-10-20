@@ -240,7 +240,7 @@ func (s *AbuseService) HandleSignals(nodeID int, signals []abuse.Signal, now tim
 		}
 		event := model.AbuseEvent{
 			Email: email, NodeId: nodeID, Rule: sig.Rule, Level: sig.Level, Measure: sig.Measure,
-			Count: sig.Count, Limit: sig.Limit, Window: sig.Window, At: now.Unix(),
+			Count: sig.Count, Limit: sig.Limit, Window: sig.Window, Bytes: sig.Bytes, At: now.Unix(),
 		}
 		if len(sig.Samples) > 0 {
 			raw, _ := json.Marshal(sig.Samples)
@@ -262,6 +262,8 @@ func decide(mode, action, level string) string {
 	switch {
 	case mode != AbuseModeEnforce:
 		return AbuseActionObserved
+	case level == abuse.LevelSuspect:
+		return AbuseActionNoticed
 	case action == AbuseActBan && level != abuse.LevelWarn:
 		return AbuseActionBanned
 	case action == AbuseActBan || action == AbuseActWarn:
@@ -443,6 +445,14 @@ func AbuseRuleLabel(rule string) string {
 	return rule
 }
 
+// AbuseEventLabel names a hit's rule and marks a suspect one, too weak to count.
+func AbuseEventLabel(e model.AbuseEvent) string {
+	if e.Level == abuse.LevelSuspect {
+		return AbuseRuleLabel(e.Rule) + "（可疑）"
+	}
+	return AbuseRuleLabel(e.Rule)
+}
+
 func windowText(seconds int) string {
 	switch {
 	case seconds >= 3600 && seconds%3600 == 0:
@@ -498,13 +508,9 @@ func AbuseEvidence(e model.AbuseEvent) string {
 		return fmt.Sprintf("24 小时内测速 %d 次", e.Count)
 	case abuse.MeasureMinutes:
 		return fmt.Sprintf("连续满速 %d 分钟", e.Count)
-	case abuse.MeasureRegisterHour, abuse.MeasureRegisterDay:
-		var samples []string
-		platform := ""
-		if json.Unmarshal([]byte(e.Samples), &samples) == nil && len(samples) > 0 {
-			platform = samples[0]
-		}
-		return fmt.Sprintf("%s内有 %d 分钟在连%s", w, e.Count, signInServerName(platform))
+	case abuse.MeasureRegisterHour, abuse.MeasureRegisterDay, abuse.MeasureRegisterHours,
+		abuse.MeasureRegisterBurst, abuse.MeasureRegisterHelped:
+		return registerEvidence(e, w)
 	case abuseMeasureSignups:
 		var samples []string
 		if json.Unmarshal([]byte(e.Samples), &samples) == nil && len(samples) > 0 {
@@ -513,4 +519,36 @@ func AbuseEvidence(e model.AbuseEvent) string {
 		return fmt.Sprintf("同一网络在 24 小时内注册了 %d 个账号", e.Count)
 	}
 	return ""
+}
+
+// registerEvidence says how long an account kept at a platform's sign-in server,
+// why that was judged so, and what the account moved in that hour.
+func registerEvidence(e model.AbuseEvent, window string) string {
+	var samples []string
+	_ = json.Unmarshal([]byte(e.Samples), &samples)
+	platform, helpers := "", []string(nil)
+	if len(samples) > 0 {
+		platform, helpers = samples[0], samples[1:]
+	}
+	server := signInServerName(platform)
+	var b strings.Builder
+	switch e.Measure {
+	case abuse.MeasureRegisterHours:
+		fmt.Fprintf(&b, "24 小时内有 %d 个小时，每小时超过 %d 分钟在连%s", e.Count, e.Limit, server)
+	default:
+		fmt.Fprintf(&b, "%s内有 %d 分钟在连%s", window, e.Count, server)
+	}
+	switch {
+	case e.Level == abuse.LevelSuspect:
+		b.WriteString("，但没持续几个小时，也没用过接码/临时邮箱/打码网站")
+	case e.Measure == abuse.MeasureRegisterBurst:
+		b.WriteString("，几乎没停")
+	}
+	if len(helpers) > 0 {
+		b.WriteString("，当天还用过接码/临时邮箱/打码网站 " + strings.Join(helpers, "、"))
+	}
+	if e.Bytes > 0 {
+		b.WriteString("；这 1 小时流量 " + common.FormatTraffic(e.Bytes))
+	}
+	return b.String()
 }

@@ -13,6 +13,7 @@ type AbuseEvent struct {
 	Limit   int64  `json:"limit" example:"50"`
 	Window  int    `json:"window" example:"300"`
 	Samples string `json:"samples" example:"[\"198.51.100.7\"]"`
+	Bytes   int64  `json:"bytes" gorm:"not null;default:0" example:"2500000000"`
 	Action  string `json:"action" example:"banned"`
 	At      int64  `json:"at" gorm:"index" example:"1791172800"`
 }

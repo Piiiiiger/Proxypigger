@@ -199,6 +199,39 @@ func TestRecordedHitsWaitForTheDailyDigest(t *testing.T) {
 	}
 }
 
+// The digest keeps suspect bulk sign-ups apart from sure ones, so a heavy Google
+// evening never reads as a bot.
+func TestDigestKeepsSuspectSignUpsApart(t *testing.T) {
+	tb, rec := newPiggerBot(t)
+	abuseOn(t, service.AbuseModeEnforce)
+	afternoon := time.Date(2026, 10, 6, 15, 0, 0, 0, accountLocation)
+	hit := func(level string) abuse.Signal {
+		return abuse.Signal{
+			Email: "alice", Rule: abuse.RuleRegister, Level: level, Measure: abuse.MeasureRegisterHour,
+			Count: 35, Limit: 30, Window: 3600, Samples: []string{abuse.PlatformGoogle},
+		}
+	}
+	s := &service.AbuseService{}
+	for i, level := range []string{abuse.LevelSuspect, abuse.LevelSuspect, abuse.LevelStrike} {
+		if _, err := s.HandleSignals(0, []abuse.Signal{hit(level)}, afternoon.Add(time.Duration(i)*time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rec.reset()
+	tb.sendAccountNotifications(context.Background(), time.Date(2026, 10, 7, 9, 0, 30, 0, accountLocation))
+	var digest string
+	for _, m := range sentTo(rec, adminTgID) {
+		if strings.Contains(m.Text, "防滥用日报") {
+			digest = m.Text
+		}
+	}
+	for _, want := range []string{"• 批量注册 AI/Google/微软账号：alice 1 次", "• 批量注册 AI/Google/微软账号（可疑）：alice 2 次"} {
+		if !strings.Contains(digest, want) {
+			t.Errorf("digest lacks %q:\n%s", want, digest)
+		}
+	}
+}
+
 // A rule set to warn tells the person what was seen, at most once an hour.
 func TestARuleSetToWarnTellsThePersonOnceAnHour(t *testing.T) {
 	tb, rec := newPiggerBot(t)

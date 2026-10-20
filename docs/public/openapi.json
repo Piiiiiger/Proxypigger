@@ -151,6 +151,11 @@
             "format": "int64",
             "type": "integer"
           },
+          "bytes": {
+            "example": 2500000000,
+            "format": "int64",
+            "type": "integer"
+          },
           "count": {
             "example": 52,
             "format": "int64",
@@ -197,6 +202,7 @@
         "required": [
           "action",
           "at",
+          "bytes",
           "count",
           "email",
           "id",
@@ -219,6 +225,11 @@
           },
           "at": {
             "example": 1791172800,
+            "format": "int64",
+            "type": "integer"
+          },
+          "bytes": {
+            "example": 2500000000,
             "format": "int64",
             "type": "integer"
           },
@@ -280,6 +291,7 @@
         "required": [
           "action",
           "at",
+          "bytes",
           "count",
           "email",
           "evidence",
@@ -7297,6 +7309,10 @@
             "example": 120,
             "type": "integer"
           },
+          "googleAuthHours": {
+            "example": 3,
+            "type": "integer"
+          },
           "googleAuthMinPerDay": {
             "example": 0,
             "type": "integer"
@@ -7370,6 +7386,7 @@
           "fullSpeedMbps",
           "fullSpeedStrikeMin",
           "fullSpeedWarnMin",
+          "googleAuthHours",
           "googleAuthMinPerDay",
           "googleAuthMinPerHour",
           "microsoftSignupMinPerDay",
@@ -18200,6 +18217,7 @@
                       {
                         "action": "banned",
                         "at": 1791172800,
+                        "bytes": 2500000000,
                         "count": 52,
                         "email": "alice",
                         "evidence": "5 分钟内连接同一 IP 的 52 个端口",
@@ -18246,6 +18264,7 @@
                         "fullSpeedMbps": 100,
                         "fullSpeedStrikeMin": 240,
                         "fullSpeedWarnMin": 120,
+                        "googleAuthHours": 3,
                         "googleAuthMinPerDay": 0,
                         "googleAuthMinPerHour": 30,
                         "microsoftSignupMinPerDay": 20,
@@ -18338,6 +18357,7 @@
                       {
                         "action": "banned",
                         "at": 1791172800,
+                        "bytes": 2500000000,
                         "count": 52,
                         "email": "alice",
                         "evidence": "5 分钟内连接同一 IP 的 52 个端口",
@@ -18384,6 +18404,7 @@
                         "fullSpeedMbps": 100,
                         "fullSpeedStrikeMin": 240,
                         "fullSpeedWarnMin": 120,
+                        "googleAuthHours": 3,
                         "googleAuthMinPerDay": 0,
                         "googleAuthMinPerHour": 30,
                         "microsoftSignupMinPerDay": 20,
@@ -18472,6 +18493,7 @@
                       {
                         "action": "banned",
                         "at": 1791172800,
+                        "bytes": 2500000000,
                         "count": 52,
                         "email": "alice",
                         "evidence": "5 分钟内连接同一 IP 的 52 个端口",
@@ -18518,6 +18540,7 @@
                         "fullSpeedMbps": 100,
                         "fullSpeedStrikeMin": 240,
                         "fullSpeedWarnMin": 120,
+                        "googleAuthHours": 3,
                         "googleAuthMinPerDay": 0,
                         "googleAuthMinPerHour": 30,
                         "microsoftSignupMinPerDay": 20,
