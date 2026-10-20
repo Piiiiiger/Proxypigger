@@ -232,6 +232,33 @@ func TestDigestKeepsSuspectSignUpsApart(t *testing.T) {
 	}
 }
 
+// Scans reach the admin at once, but a suspect one only waits for the digest:
+// it may well be an app, and it neither bans nor warns anyone.
+func TestSuspectScansWaitForTheDigest(t *testing.T) {
+	tb, rec := newPiggerBot(t)
+	abuseOn(t, service.AbuseModeEnforce)
+	afternoon := time.Date(2026, 10, 6, 15, 0, 0, 0, accountLocation)
+	suspect := abuse.Signal{Email: "alice", Rule: abuse.RuleScan, Level: abuse.LevelSuspect, Measure: abuse.MeasureIPs, Count: 160, Limit: 150, Window: 300}
+	if _, err := (&service.AbuseService{}).HandleSignals(0, []abuse.Signal{suspect}, afternoon); err != nil {
+		t.Fatal(err)
+	}
+	rec.reset()
+	tb.sendAccountNotifications(context.Background(), afternoon.Add(time.Minute))
+	if sent := sentTo(rec, adminTgID); len(sent) != 0 {
+		t.Fatalf("a suspect scan reached the admin at once: %q", sent[0].Text)
+	}
+	tb.sendAccountNotifications(context.Background(), time.Date(2026, 10, 7, 9, 0, 30, 0, accountLocation))
+	var digest string
+	for _, m := range sentTo(rec, adminTgID) {
+		if strings.Contains(m.Text, "防滥用日报") {
+			digest = m.Text
+		}
+	}
+	if !strings.Contains(digest, "• 端口扫描（可疑）：alice 1 次") {
+		t.Errorf("the digest lacks the suspect scan:\n%s", digest)
+	}
+}
+
 // A rule set to warn tells the person what was seen, at most once an hour.
 func TestARuleSetToWarnTellsThePersonOnceAnHour(t *testing.T) {
 	tb, rec := newPiggerBot(t)

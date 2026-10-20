@@ -63,7 +63,7 @@ const RULES: { action: RuleAction; title: string; hint?: string; fields: [Thresh
     {
       action: 'scan',
       title: '端口扫描',
-      hint: '只计直接连 IP 的连接，按域名访问不算。',
+      hint: '只计直接连 IP 的连接，按域名访问不算。计违规要求：远程登录/数据库端口的 IP 数或同一 IP 的端口数达到上限，或 5 分钟内用 TCP 逐个探测（每个 IP 最多连两次）的 IP 达到「不同 IP 数」。不同 IP 数够了但多是 UDP 或反复连接（点对点、聊天软件），或同一 /24 网段 32 个以上地址，只记「可疑」。',
       fields: [
         ['scanIps', '不同 IP 数'],
         ['scanPortsOnIp', '同一 IP 的端口数'],
@@ -186,7 +186,7 @@ function RulesCard({
             className="abuse-rules-note"
             type="info"
             showIcon
-            title="阈值对所有开启检测的服务器生效，0 表示关闭该项（小时数除外）。「处理」只在设为「封禁」模式的服务器上生效；「观察」模式的服务器一律只记录。"
+            title="阈值对所有开启检测的服务器生效，0 表示关闭该项（小时数除外）。「处理」只在设为「封禁」模式的服务器上生效；「观察」模式的服务器一律只记录。垃圾邮件、BT、端口扫描、网络攻击和爬虫（网站数）达到上限一半时记为「可疑」：只记录，不提醒用户、不计违规，汇总在每天 09:00 的日报里。"
           />
           {RULES.map((rule) => (
             <SettingListItem

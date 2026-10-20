@@ -36,14 +36,16 @@ func none(t *testing.T, signals []Signal, rule string) {
 	}
 }
 
-// A mail app may try port 25 once or twice; a spammer keeps at it. One run of
-// attempts is one strike, not one per check.
+// A mail app may try port 25 once or twice; a spammer keeps at it. Half the limit
+// is only suspect, and one run of attempts is one strike, not one per check.
 func TestSpamNeedsRepeatedPort25AttemptsAndStrikesOnce(t *testing.T) {
 	d := NewDetector(DefaultRules())
 	for i := range 9 {
 		connect(d, t0.Add(time.Duration(i)*time.Minute), "alice", "203.0.113.25", 25, TagSMTP)
 	}
-	none(t, d.Collect(t0.Add(9*time.Minute)), RuleSpam)
+	if s := only(t, d.Collect(t0.Add(9*time.Minute)), RuleSpam); s.Level != LevelSuspect || s.Count != 9 || s.Limit != 5 {
+		t.Fatalf("nine attempts gave %+v, want a suspect over half the limit", s)
+	}
 
 	connect(d, t0.Add(9*time.Minute), "alice", "203.0.113.26", 25, TagSMTP)
 	s := only(t, d.Collect(t0.Add(9*time.Minute)), RuleSpam)
@@ -66,8 +68,8 @@ func TestScanCountsBareIPsNotNamedSites(t *testing.T) {
 		connect(d, t0.Add(5*time.Minute), "bob", fmt.Sprintf("198.51.%d.%d", i/250, i%250+1), 80, "direct")
 	}
 	s := only(t, d.Collect(t0.Add(5*time.Minute)), RuleScan)
-	if s.Email != "bob" || s.Measure != MeasureIPs || s.Count != 150 {
-		t.Errorf("scan signal = %+v, want bob reaching 150 bare IPs", s)
+	if s.Email != "bob" || s.Level != LevelStrike || s.Measure != MeasureProbes || s.Count != 150 {
+		t.Errorf("scan signal = %+v, want bob probing 150 bare IPs", s)
 	}
 }
 
@@ -86,6 +88,122 @@ func TestScanCatchesPortsOnOneIPAndLoginPortsAcrossIPs(t *testing.T) {
 	}
 	if s := only(t, d.Collect(t0), RuleScan); s.Measure != MeasureSensitive || s.Count != 20 {
 		t.Errorf("login-port sweep signal = %+v", s)
+	}
+}
+
+// reach opens n connections to each of count bare IPs within a minute.
+func reach(d *Detector, email string, count, n int, udp bool, ip func(int) string, port int) {
+	for i := range count {
+		for j := range n {
+			d.Observe(NewEvent(t0.Add(time.Duration(i*n+j)*time.Millisecond), email, ip(i), port, udp, "in-443 >> direct"))
+		}
+	}
+}
+
+func spread(i int) string { return fmt.Sprintf("198.51.%d.%d", i/200, i%200+1) }
+
+// Peer-to-peer apps and chat apps reach many addresses too, over UDP or again and
+// again (a WeChat user hit 70 in five minutes); only one-off TCP probes are a scan.
+func TestScanStrikesOnlyOnTCPProbes(t *testing.T) {
+	d := NewDetector(DefaultRules())
+	reach(d, "p2p", 160, 1, true, spread, 51413)
+	reach(d, "app", 160, 3, false, spread, 443)
+	got := d.Collect(t0.Add(time.Minute))
+	for _, email := range []string{"p2p", "app"} {
+		var mine []Signal
+		for _, s := range got {
+			if s.Email == email && s.Rule == RuleScan {
+				mine = append(mine, s)
+			}
+		}
+		if len(mine) != 1 || mine[0].Level != LevelSuspect || mine[0].Measure != MeasureIPs || mine[0].Count != 160 {
+			t.Errorf("%s reaching 160 addresses gave %+v, want one suspect", email, mine)
+		}
+	}
+}
+
+// Under the scan limit, half of it in probes, a sweep through one /24, or half the
+// login-port or one-address limits are recorded as suspect, never struck.
+func TestScanEarlyWarningsAreSuspect(t *testing.T) {
+	cases := []struct {
+		name    string
+		feed    func(d *Detector)
+		measure string
+		count   int64
+		limit   int64
+	}{
+		{"probes", func(d *Detector) { reach(d, "eve", 80, 1, false, spread, 443) }, MeasureProbes, 80, 75},
+		{"range", func(d *Detector) {
+			reach(d, "eve", 40, 1, false, func(i int) string { return fmt.Sprintf("203.0.113.%d", i+1) }, 443)
+		}, MeasureRange, 40, 32},
+		{"login ports", func(d *Detector) { reach(d, "eve", 12, 1, false, spread, 22) }, MeasureSensitive, 12, 10},
+		{"ports on one address", func(d *Detector) {
+			for p := range 30 {
+				connect(d, t0, "eve", "192.0.2.10", 1000+p, "direct")
+			}
+		}, MeasurePorts, 30, 25},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			d := NewDetector(DefaultRules())
+			c.feed(d)
+			s := only(t, d.Collect(t0.Add(time.Minute)), RuleScan)
+			if s.Level != LevelSuspect || s.Measure != c.measure || s.Count != c.count || s.Limit != c.limit {
+				t.Errorf("signal = %+v, want a suspect %s of %d over %d", s, c.measure, c.count, c.limit)
+			}
+		})
+	}
+}
+
+// Half a rule's limit is worth a look: floods, crawling and BitTorrent are suspect
+// there, while the strike lines stay where they were.
+func TestHalfTheLimitIsSuspect(t *testing.T) {
+	d := NewDetector(DefaultRules())
+	end := t0.Add(19 * time.Minute)
+	for range 600 {
+		connect(d, end, "flood", "203.0.113.80", 80, "direct")
+	}
+	for i := range 16 {
+		connect(d, end, "bt", fmt.Sprintf("198.51.100.%d", i+1), 51413, TagBT)
+	}
+	for w := range 2 {
+		for i := range 320 {
+			connect(d, t0.Add(time.Duration(w*10+i%10)*time.Minute), "crawl", fmt.Sprintf("p%d-%d.example.org", w, i), 443, "direct")
+		}
+	}
+	got := d.Collect(end)
+	want := map[string]string{"flood": MeasurePerDest, "bt": MeasureAttempts, "crawl": MeasureHosts}
+	for _, s := range got {
+		if want[s.Email] != s.Measure || s.Level != LevelSuspect {
+			t.Errorf("unexpected signal %+v", s)
+		}
+		delete(want, s.Email)
+	}
+	if len(want) != 0 {
+		t.Errorf("no suspect for %v in %+v", want, got)
+	}
+}
+
+// A suspect is said once an hour, and not at all within the hour after a strike
+// of the same rule, so the admin reads each episode once.
+func TestSuspectsComeHourlyAndYieldToStrikes(t *testing.T) {
+	d := NewDetector(DefaultRules())
+	burst := func(at time.Time, n int) []Signal {
+		for range n {
+			connect(d, at, "alice", "203.0.113.80", 80, "direct")
+		}
+		return d.Collect(at)
+	}
+	if s := only(t, burst(t0, 600), RuleFlood); s.Level != LevelSuspect {
+		t.Fatalf("first burst gave %+v, want a suspect", s)
+	}
+	none(t, burst(t0.Add(5*time.Minute), 600), RuleFlood)
+	if s := only(t, burst(t0.Add(10*time.Minute), 1000), RuleFlood); s.Level != LevelStrike {
+		t.Fatalf("a full flood gave %+v, want a strike", s)
+	}
+	none(t, burst(t0.Add(65*time.Minute), 600), RuleFlood)
+	if s := only(t, burst(t0.Add(71*time.Minute), 600), RuleFlood); s.Level != LevelSuspect {
+		t.Fatalf("an hour after the strike gave %+v, want a suspect again", s)
 	}
 }
 

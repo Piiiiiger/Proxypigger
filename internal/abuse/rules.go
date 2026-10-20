@@ -68,6 +68,8 @@ const (
 const (
 	MeasureAttempts  = "attempts"
 	MeasureIPs       = "ips"
+	MeasureProbes    = "probes"
+	MeasureRange     = "range"
 	MeasurePorts     = "ports"
 	MeasureSensitive = "sensitive"
 	MeasurePerDest   = "perdest"

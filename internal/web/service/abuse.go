@@ -491,7 +491,20 @@ func AbuseEvidence(e model.AbuseEvent) string {
 		}
 		return fmt.Sprintf("%s内发起 BT 连接 %d 次", w, e.Count)
 	case abuse.MeasureIPs:
+		if e.Level == abuse.LevelSuspect {
+			return fmt.Sprintf("%s内连接了 %d 个不同 IP，但多是 UDP 或反复连接，不像逐个探测", w, e.Count)
+		}
 		return fmt.Sprintf("%s内连接了 %d 个不同 IP", w, e.Count)
+	case abuse.MeasureProbes:
+		return fmt.Sprintf("%s内用 TCP 逐个探测了 %d 个不同 IP（每个最多连两次）", w, e.Count)
+	case abuse.MeasureRange:
+		var samples []string
+		_ = json.Unmarshal([]byte(e.Samples), &samples)
+		network := "同一网段"
+		if len(samples) > 0 {
+			network = "同一网段 " + samples[0] + " "
+		}
+		return fmt.Sprintf("%s内连接了%s里的 %d 个地址", w, network, e.Count)
 	case abuse.MeasurePorts:
 		return fmt.Sprintf("%s内连接同一 IP 的 %d 个端口", w, e.Count)
 	case abuse.MeasureSensitive:

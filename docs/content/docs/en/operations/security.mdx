@@ -60,10 +60,21 @@ on to the next server, which checks the real destinations itself.
   Observe records hits and tells the admins; enforce does what each rule is set
   to do. Observe for about a week first and tune the thresholds on what it
   records. The page marks a server whose agent does not report the current
-  `abuse-v3` capability as needing an update.
+  `abuse-v5` capability as needing an update.
 - **Rules.** On an enforcing server each rule is set to **record** (tell the
   admins), **warn** (also tell the user, at no cost) or **ban**. Full speed warns
   after 2 hours and, while the rule bans, strikes after 4.
+- **Suspect hits.** A hit worth a look but too weak to count is *suspect*: the
+  admins see it on the page and in the 09:00 digest, and it never bans, warns or
+  costs a strike, whatever the rule is set to do. Spam, BitTorrent, port scans,
+  attacks and crawling (its sites) are suspect from half their limit. A rule
+  reports an account as suspect at most once an hour, and not within the hour
+  after it struck.
+- **Port scans.** Only connections to bare IP addresses count. A scan strikes on
+  login or database ports across many addresses, on many ports of one address, or
+  on many addresses each probed once or twice over TCP within five minutes. Many
+  addresses reached over UDP or again and again, as peer-to-peer and chat apps do,
+  are only suspect, and so are 32 or more addresses in one IPv4 /24.
 - **Strikes and locks.** A strike bans the account on every server for 30
   minutes. The fourth strike within 30 days locks it until an admin lifts the
   lock, which also clears its strikes. IP-limit bans share the history but never
@@ -88,7 +99,8 @@ on to the next server, which checks the real destinations itself.
   until the day is over.
 - **Notices.** Bans, locks and warnings reach the user's bound Telegram and the
   admins. Hits that only record reach the admins at once for scans and attacks,
-  and otherwise in a digest at 09:00 (UTC+8).
+  and otherwise in a digest at 09:00 (UTC+8); suspect hits always wait for the
+  digest.
 - **What users see.** The user page opens with the usage rules, the warning to
   turn off location services on phones first; it can be closed or hidden for 7
   days. The page and the bot list each account's bans of the last 90 days, with

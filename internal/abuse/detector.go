@@ -83,6 +83,7 @@ type bucket struct {
 	sensitive map[string]struct{}
 	hosts     map[string]struct{}
 	ports     map[string]map[int]struct{}
+	tcp       map[string]int64
 	dests     map[string]int64
 }
 
@@ -197,6 +198,30 @@ func (a *account) cooling(check string, sec int64, cooldown int) bool {
 	return ok && sec-last < int64(cooldown)
 }
 
+// suspectEvery is how often one rule may report an account as suspect.
+const suspectEvery = 3600
+
+// suspect lets a rule report a suspect hit once an hour, and not within the hour
+// after it struck the account, so each episode reaches the admin once.
+func (a *account) suspect(rule string, sec int64) bool {
+	return !a.cooling(rule, sec, suspectEvery) && a.ready(rule+":suspect", sec, suspectEvery)
+}
+
+// half is the suspect line of a limit: half of it, rounded up.
+func half(limit int) int64 { return int64((limit + 1) / 2) }
+
+// grade says whether n strikes against limit, or is suspect at half of it.
+func (a *account) grade(rule string, n int64, limit int, sec int64, cooldown int) (level string, line int64) {
+	switch {
+	case limit <= 0:
+	case n >= int64(limit) && a.ready(rule, sec, cooldown):
+		return LevelStrike, int64(limit)
+	case n >= half(limit) && a.suspect(rule, sec):
+		return LevelSuspect, half(limit)
+	}
+	return "", 0
+}
+
 // helperSites lists the helper services the account reached in the last day.
 func (a *account) helperSites() []string {
 	sites := make([]string, 0, len(a.helpers))
@@ -278,6 +303,14 @@ func (d *Detector) Observe(e Event) {
 		b.ips = remember(b.ips, e.Host)
 		if sensitivePorts[e.Port] {
 			b.sensitive = remember(b.sensitive, e.Host)
+		}
+		if !e.UDP {
+			if b.tcp == nil {
+				b.tcp = map[string]int64{}
+			}
+			if _, ok := b.tcp[e.Host]; ok || len(b.tcp) < mapCap {
+				b.tcp[e.Host]++
+			}
 		}
 		if b.ports == nil {
 			b.ports = map[string]map[int]struct{}{}
@@ -380,10 +413,10 @@ func (d *Detector) check(a *account, sec int64) []Signal {
 		for _, b := range window {
 			n += b.smtp
 		}
-		if n >= int64(r.SpamAttempts) && a.ready(RuleSpam, sec, r.SpamWindowMin*60) {
+		if level, line := a.grade(RuleSpam, n, r.SpamAttempts, sec, r.SpamWindowMin*60); level != "" {
 			out = append(out, Signal{
-				Rule: RuleSpam, Level: LevelStrike, Measure: MeasureAttempts, Count: n,
-				Limit: int64(r.SpamAttempts), Window: r.SpamWindowMin * 60, Samples: destsOnPort(window, 25),
+				Rule: RuleSpam, Level: level, Measure: MeasureAttempts, Count: n,
+				Limit: line, Window: r.SpamWindowMin * 60, Samples: destsOnPort(window, 25),
 			})
 		}
 	}
@@ -393,10 +426,10 @@ func (d *Detector) check(a *account, sec int64) []Signal {
 		for _, b := range a.window(minute, r.BTWindowMin) {
 			n += b.bt
 		}
-		if n >= int64(r.BTAttempts) && a.ready(RuleBT, sec, r.BTWindowMin*60) {
+		if level, line := a.grade(RuleBT, n, r.BTAttempts, sec, r.BTWindowMin*60); level != "" {
 			out = append(out, Signal{
-				Rule: RuleBT, Level: LevelStrike, Measure: MeasureAttempts, Count: n,
-				Limit: int64(r.BTAttempts), Window: r.BTWindowMin * 60,
+				Rule: RuleBT, Level: level, Measure: MeasureAttempts, Count: n,
+				Limit: line, Window: r.BTWindowMin * 60,
 			})
 		}
 	}
@@ -405,24 +438,8 @@ func (d *Detector) check(a *account, sec int64) []Signal {
 		out = append(out, s)
 	}
 
-	if r.FloodPerDest > 0 || r.FloodTotal > 0 {
-		for _, b := range a.window(minute, 2) {
-			dest, top := topCount(b.dests)
-			var s Signal
-			switch {
-			case r.FloodPerDest > 0 && top >= int64(r.FloodPerDest):
-				s = Signal{Measure: MeasurePerDest, Count: top, Limit: int64(r.FloodPerDest), Samples: []string{dest}}
-			case r.FloodTotal > 0 && b.conns >= int64(r.FloodTotal):
-				s = Signal{Measure: MeasureConns, Count: b.conns, Limit: int64(r.FloodTotal)}
-			default:
-				continue
-			}
-			if a.ready(RuleFlood, sec, 60) {
-				s.Rule, s.Level, s.Window = RuleFlood, LevelStrike, 60
-				out = append(out, s)
-			}
-			break
-		}
+	if s, ok := d.checkFlood(a, sec); ok {
+		out = append(out, s)
 	}
 
 	if s, ok := d.checkCrawler(a, sec); ok {
@@ -473,6 +490,15 @@ func (d *Detector) check(a *account, sec int64) []Signal {
 	return out
 }
 
+// A TCP address reached at most probeTouches times in the scan window was probed,
+// not used; scanRangeIPs TCP addresses in one IPv4 /24 sweep that network.
+const (
+	probeTouches = 2
+	scanRangeIPs = 32
+)
+
+// checkScan strikes only on clear scans; volume without TCP probing, as peer-to-peer
+// and chat apps produce, and the half-way marks are suspect.
 func (d *Detector) checkScan(a *account, sec int64) (Signal, bool) {
 	r := d.rules
 	if r.ScanIPs <= 0 && r.ScanPortsOnIP <= 0 && r.ScanSensitiveIPs <= 0 {
@@ -481,6 +507,7 @@ func (d *Detector) checkScan(a *account, sec int64) (Signal, bool) {
 	window := a.window(sec/60, r.ScanWindowMin)
 	ips, sensitive := map[string]struct{}{}, map[string]struct{}{}
 	ports := map[string]map[int]struct{}{}
+	tcp := map[string]int64{}
 	for _, b := range window {
 		for ip := range b.ips {
 			ips[ip] = struct{}{}
@@ -496,22 +523,86 @@ func (d *Detector) checkScan(a *account, sec int64) (Signal, bool) {
 				ports[ip][p] = struct{}{}
 			}
 		}
+		for ip, n := range b.tcp {
+			tcp[ip] += n
+		}
 	}
+	probes := map[string]struct{}{}
+	ranges := map[string]int{}
+	for ip, n := range tcp {
+		if n <= probeTouches {
+			probes[ip] = struct{}{}
+		}
+		if v4 := net.ParseIP(ip).To4(); v4 != nil {
+			ranges[net.IPv4(v4[0], v4[1], v4[2], 0).String()+"/24"]++
+		}
+	}
+	topIP, topPorts := widest(ports)
+	rangeNet, inRange := topCount(intCounts(ranges))
 	var s Signal
-	switch topIP, topPorts := widest(ports); {
-	case r.ScanIPs > 0 && len(ips) >= r.ScanIPs:
-		s = Signal{Measure: MeasureIPs, Count: int64(len(ips)), Limit: int64(r.ScanIPs), Samples: firstKeys(ips, 5)}
+	switch {
 	case r.ScanSensitiveIPs > 0 && len(sensitive) >= r.ScanSensitiveIPs:
 		s = Signal{Measure: MeasureSensitive, Count: int64(len(sensitive)), Limit: int64(r.ScanSensitiveIPs), Samples: firstKeys(sensitive, 5)}
 	case r.ScanPortsOnIP > 0 && topPorts >= r.ScanPortsOnIP:
 		s = Signal{Measure: MeasurePorts, Count: int64(topPorts), Limit: int64(r.ScanPortsOnIP), Samples: []string{topIP}}
+	case r.ScanIPs > 0 && len(probes) >= r.ScanIPs:
+		s = Signal{Measure: MeasureProbes, Count: int64(len(probes)), Limit: int64(r.ScanIPs), Samples: firstKeys(probes, 5)}
+	}
+	if s.Measure != "" && a.ready(RuleScan, sec, r.ScanWindowMin*60) {
+		s.Rule, s.Level, s.Window = RuleScan, LevelStrike, r.ScanWindowMin*60
+		return s, true
+	}
+	switch {
+	case r.ScanIPs > 0 && len(ips) >= r.ScanIPs:
+		s = Signal{Measure: MeasureIPs, Count: int64(len(ips)), Limit: int64(r.ScanIPs), Samples: firstKeys(ips, 5)}
+	case r.ScanIPs > 0 && int64(len(probes)) >= half(r.ScanIPs):
+		s = Signal{Measure: MeasureProbes, Count: int64(len(probes)), Limit: half(r.ScanIPs), Samples: firstKeys(probes, 5)}
+	case r.ScanIPs > 0 && inRange >= scanRangeIPs:
+		s = Signal{Measure: MeasureRange, Count: inRange, Limit: scanRangeIPs, Samples: []string{rangeNet}}
+	case r.ScanSensitiveIPs > 0 && int64(len(sensitive)) >= half(r.ScanSensitiveIPs):
+		s = Signal{Measure: MeasureSensitive, Count: int64(len(sensitive)), Limit: half(r.ScanSensitiveIPs), Samples: firstKeys(sensitive, 5)}
+	case r.ScanPortsOnIP > 0 && int64(topPorts) >= half(r.ScanPortsOnIP):
+		s = Signal{Measure: MeasurePorts, Count: int64(topPorts), Limit: half(r.ScanPortsOnIP), Samples: []string{topIP}}
 	default:
 		return Signal{}, false
 	}
-	if !a.ready(RuleScan, sec, r.ScanWindowMin*60) {
+	if !a.suspect(RuleScan, sec) {
 		return Signal{}, false
 	}
-	s.Rule, s.Level, s.Window = RuleScan, LevelStrike, r.ScanWindowMin*60
+	s.Rule, s.Level, s.Window = RuleScan, LevelSuspect, r.ScanWindowMin*60
+	return s, true
+}
+
+// checkFlood looks at the busier of the last two minutes, one destination first.
+func (d *Detector) checkFlood(a *account, sec int64) (Signal, bool) {
+	r := d.rules
+	if r.FloodPerDest <= 0 && r.FloodTotal <= 0 {
+		return Signal{}, false
+	}
+	var dest string
+	var top, conns int64
+	for _, b := range a.window(sec/60, 2) {
+		if to, n := topCount(b.dests); n > top {
+			dest, top = to, n
+		}
+		conns = max(conns, b.conns)
+	}
+	reaches := func(n int64, limit int, line func(int) int64) bool { return limit > 0 && n >= line(limit) }
+	full := func(limit int) int64 { return int64(limit) }
+	var level string
+	line := full
+	switch {
+	case (reaches(top, r.FloodPerDest, full) || reaches(conns, r.FloodTotal, full)) && a.ready(RuleFlood, sec, 60):
+		level = LevelStrike
+	case (reaches(top, r.FloodPerDest, half) || reaches(conns, r.FloodTotal, half)) && a.suspect(RuleFlood, sec):
+		level, line = LevelSuspect, half
+	default:
+		return Signal{}, false
+	}
+	s := Signal{Rule: RuleFlood, Level: level, Window: 60, Measure: MeasureConns, Count: conns, Limit: line(r.FloodTotal)}
+	if reaches(top, r.FloodPerDest, line) {
+		s.Measure, s.Count, s.Limit, s.Samples = MeasurePerDest, top, line(r.FloodPerDest), []string{dest}
+	}
 	return s, true
 }
 
@@ -561,8 +652,8 @@ func (d *Detector) checkRegister(a *account, sec int64) []Signal {
 	return out
 }
 
-// checkCrawler wants every one of the last few windows busy: a crawler keeps
-// going, while a burst of browsing fills one window at most.
+// checkCrawler wants every one of the last few windows busy. Half the hosts in each
+// is suspect; half the connections is not, as heavy API use alone reaches it.
 func (d *Detector) checkCrawler(a *account, sec int64) (Signal, bool) {
 	r := d.rules
 	if r.CrawlerConns <= 0 && r.CrawlerHosts <= 0 {
@@ -570,6 +661,7 @@ func (d *Detector) checkCrawler(a *account, sec int64) (Signal, bool) {
 	}
 	minute := sec / 60
 	var conns, hosts int64
+	over, busy := true, r.CrawlerHosts > 0
 	for w := 0; w < r.CrawlerWindows; w++ {
 		var c int64
 		seen := map[string]struct{}{}
@@ -580,20 +672,27 @@ func (d *Detector) checkCrawler(a *account, sec int64) (Signal, bool) {
 			}
 		}
 		if (r.CrawlerConns <= 0 || c < int64(r.CrawlerConns)) && (r.CrawlerHosts <= 0 || len(seen) < r.CrawlerHosts) {
-			return Signal{}, false
+			over = false
+		}
+		if int64(len(seen)) < half(r.CrawlerHosts) {
+			busy = false
 		}
 		if w == 0 {
 			conns, hosts = c, int64(len(seen))
 		}
 	}
-	if !a.ready(RuleCrawler, sec, r.CrawlerWindowMin*60) {
-		return Signal{}, false
+	window := r.CrawlerWindowMin * 60
+	switch {
+	case over && a.ready(RuleCrawler, sec, window):
+		s := Signal{Rule: RuleCrawler, Level: LevelStrike, Measure: MeasureConns, Count: conns, Limit: int64(r.CrawlerConns), Window: window}
+		if r.CrawlerHosts > 0 && hosts >= int64(r.CrawlerHosts) {
+			s.Measure, s.Count, s.Limit = MeasureHosts, hosts, int64(r.CrawlerHosts)
+		}
+		return s, true
+	case busy && a.suspect(RuleCrawler, sec):
+		return Signal{Rule: RuleCrawler, Level: LevelSuspect, Measure: MeasureHosts, Count: hosts, Limit: half(r.CrawlerHosts), Window: window}, true
 	}
-	s := Signal{Rule: RuleCrawler, Level: LevelStrike, Measure: MeasureConns, Count: conns, Limit: int64(r.CrawlerConns), Window: r.CrawlerWindowMin * 60}
-	if r.CrawlerHosts > 0 && hosts >= int64(r.CrawlerHosts) {
-		s.Measure, s.Count, s.Limit = MeasureHosts, hosts, int64(r.CrawlerHosts)
-	}
-	return s, true
+	return Signal{}, false
 }
 
 func topCount(counts map[string]int64) (string, int64) {
@@ -605,6 +704,14 @@ func topCount(counts map[string]int64) (string, int64) {
 		}
 	}
 	return best, top
+}
+
+func intCounts(counts map[string]int) map[string]int64 {
+	out := make(map[string]int64, len(counts))
+	for k, v := range counts {
+		out[k] = int64(v)
+	}
+	return out
 }
 
 func widest(ports map[string]map[int]struct{}) (string, int) {

@@ -68,7 +68,7 @@ func (t *Tgbot) notifyAbuse(ctx context.Context, now time.Time) {
 			continue
 		}
 		recorded := e.Action == service.AbuseActionObserved || e.Action == service.AbuseActionNoticed
-		if recorded && !abuseAtOnce[e.Rule] {
+		if recorded && (!abuseAtOnce[e.Rule] || e.Level == abuse.LevelSuspect) {
 			continue
 		}
 		var client model.ClientRecord

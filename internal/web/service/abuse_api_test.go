@@ -156,3 +156,38 @@ func TestAbuseOverviewSaysWhyABulkSignUpWasJudgedSo(t *testing.T) {
 		t.Errorf("missing hits %v in %+v", want, overview.Events)
 	}
 }
+
+// A scan strike says it was probing; a suspect says why it fell short of one.
+func TestAbuseOverviewExplainsGradedScans(t *testing.T) {
+	s := setupAbuse(t, AbuseModeObserve)
+	now := time.Now()
+	hit := func(level, measure string, count, limit int64, samples ...string) abuse.Signal {
+		return abuse.Signal{Email: "alice", Rule: abuse.RuleScan, Level: level, Measure: measure, Count: count, Limit: limit, Window: 300, Samples: samples}
+	}
+	hits := []abuse.Signal{
+		hit(abuse.LevelStrike, abuse.MeasureProbes, 160, 150, "198.51.100.1"),
+		hit(abuse.LevelSuspect, abuse.MeasureRange, 40, 32, "203.0.113.0/24"),
+		hit(abuse.LevelSuspect, abuse.MeasureIPs, 160, 150, "198.51.100.1"),
+	}
+	if _, err := s.HandleSignals(0, hits, now); err != nil {
+		t.Fatal(err)
+	}
+	overview, err := s.Overview(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"5 分钟内用 TCP 逐个探测了 160 个不同 IP（每个最多连两次）":     "端口扫描",
+		"5 分钟内连接了同一网段 203.0.113.0/24 里的 40 个地址":    "端口扫描（可疑）",
+		"5 分钟内连接了 160 个不同 IP，但多是 UDP 或反复连接，不像逐个探测": "端口扫描（可疑）",
+	}
+	for _, e := range overview.Events {
+		if label, ok := want[e.Evidence]; !ok || e.Label != label {
+			t.Errorf("scan hit = %q: %q", e.Label, e.Evidence)
+		}
+		delete(want, e.Evidence)
+	}
+	if len(want) != 0 {
+		t.Errorf("missing hits %v in %+v", want, overview.Events)
+	}
+}
